@@ -941,3 +941,61 @@ html[data-theme="light"] .pixel-bg-pattern {
     padding: 10px 8px !important;
   }
 }
+
+/* Optical Camera Scanner Modal - Mobile Full Height & Full Screen */
+.camera-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.camera-modal-container {
+  background-color: var(--surface);
+  border: 1px solid var(--border-visible);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8);
+  transition: all 0.2s ease;
+}
+
+.camera-modal-viewfinder {
+  position: relative;
+  width: 100%;
+  height: 340px;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .camera-modal-backdrop {
+    padding: 0 !important;
+  }
+  .camera-modal-container {
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .camera-modal-viewfinder {
+    flex: 1 !important;
+    height: 100% !important;
+    min-height: 250px !important;
+  }
+}

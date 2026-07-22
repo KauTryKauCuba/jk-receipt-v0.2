@@ -103,33 +103,8 @@ export default function CameraScannerModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.85)",
-        backdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        padding: "16px",
-      }}
-    >
-      <div
-        className="dot-grid-subtle"
-        style={{
-          backgroundColor: "var(--surface)",
-          border: "1px solid var(--border-visible)",
-          borderRadius: "14px",
-          width: "100%",
-          maxWidth: "540px",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 12px 36px rgba(0,0,0,0.8)",
-        }}
-      >
+    <div className="camera-modal-backdrop">
+      <div className="camera-modal-container dot-grid-subtle">
         {/* HEADER */}
         <div
           style={{
@@ -179,18 +154,7 @@ export default function CameraScannerModal({
         </div>
 
         {/* VIEWFINDER SCREEN CONTAINER */}
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            height: "320px",
-            backgroundColor: "#000",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-          }}
-        >
+        <div className="camera-modal-viewfinder">
           {hasPermission !== false ? (
             <video
               ref={videoRef}
