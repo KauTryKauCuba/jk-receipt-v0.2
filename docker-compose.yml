@@ -9,11 +9,11 @@ services:
       - "3011:3000"
     environment:
       - PORT=3000
+      - HOSTNAME=0.0.0.0
       - NODE_ENV=production
       - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   db:
     image: postgres:16-alpine
@@ -27,11 +27,6 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jejaku -d jejaku_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
 volumes:
   postgres_data:
