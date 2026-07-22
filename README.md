@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JK Receipt v0.2 — Interactive Receipt Telemetry Scanner
 
-## Getting Started
+Industrial, monochromatic receipt telemetry scanner built with Next.js 16, Drizzle ORM, PostgreSQL, and Docker.
 
-First, run the development server:
+---
+
+## 🛠️ Local Development Setup
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Run local development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` to access the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🗄️ Database Management (Drizzle ORM & Kit)
 
-## Learn More
+```bash
+# Generate database migration files from schema
+npm run db:generate
 
-To learn more about Next.js, take a look at the following resources:
+# Push schema directly to database
+npm run db:push
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Open Drizzle Studio database UI
+npm run db:studio
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🐙 Push Code to GitHub
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# 1. Stage all changes & commit
+git add .
+git commit -m "feat: setup drizzle kit & docker deployment for port 3011"
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# 2. Ensure main branch is set & remote URL is attached
+git branch -M main
+git remote add origin https://github.com/KauTryKauCuba/jk-receipt-v0.2.git
+
+# 3. Push to GitHub
+git push -u origin main
+```
+
+---
+
+## 🚀 Deploy on VPS via Docker (Running on http://localhost:3011)
+
+To pull and run on your VPS server:
+
+```bash
+# 1. Clone repository on your VPS
+git clone https://github.com/KauTryKauCuba/jk-receipt-v0.2.git
+cd jk-receipt-v0.2
+
+# 2. Copy environment file
+cp .env.example .env
+
+# 3. Start application and PostgreSQL database with Docker Compose
+docker compose up -d --build
+```
+
+Access your application at **`http://localhost:3011`** (or `http://YOUR_VPS_IP:3011`)!
+
+---
+
+## 🐳 Useful Docker Commands
+
+```bash
+# View running logs
+docker compose logs -f
+
+# Restart containers
+docker compose restart
+
+# Stop containers
+docker compose down
+```

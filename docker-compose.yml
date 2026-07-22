@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jk-receipt-app
+    restart: always
+    ports:
+      - "3011:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: jk-receipt-db
+    restart: always
+    environment:
+      POSTGRES_USER: jejaku
+      POSTGRES_PASSWORD: jejaku_password
+      POSTGRES_DB: jejaku_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jejaku -d jejaku_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
