@@ -314,7 +314,7 @@ export default function DashboardPage() {
                               border: "1px solid var(--border-visible)",
                               color: "var(--text-display)",
                               fontFamily: "var(--font-data)",
-                              fontSize: "9px",
+                              fontSize: "10px",
                               fontWeight: "700",
                               padding: "2px 6px",
                               borderRadius: "4px",
@@ -327,7 +327,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)", border: "1px solid rgba(74,158,92,0.4)", padding: "1px 5px", borderRadius: "3px" }}>
+                        <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", border: "1px solid rgba(74,158,92,0.4)", padding: "1px 5px", borderRadius: "3px" }}>
                           [{doc.status}]
                         </span>
                       </div>
@@ -351,8 +351,8 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <span style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: "700", color: "var(--text-display)" }}>
-                          {doc.amount.toFixed(2)} <span style={{ fontSize: "9px", fontFamily: "var(--font-data)", color: "var(--text-secondary)" }}>{doc.currency}</span>
+                        <span style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: "700", color: "var(--orange)" }}>
+                          {doc.amount.toFixed(2)} <span style={{ fontSize: "10px", fontFamily: "var(--font-data)", color: "var(--text-secondary)" }}>{doc.currency}</span>
                         </span>
                       </div>
                     </div>
@@ -561,12 +561,12 @@ export default function DashboardPage() {
                                     <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", fontWeight: "700", color: "var(--orange)" }}>
                                       {dayTotal.toFixed(2)} MYR
                                     </span>
-                                    <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)" }}>
+                                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
                                       {dayReceipts.length} {dayReceipts.length === 1 ? "SLIP" : "SLIPS"}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)" }}>
+                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)" }}>
                                     NO SLIPS
                                   </span>
                                 )}
@@ -646,8 +646,8 @@ export default function DashboardPage() {
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                           <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)" }}>EXPENDITURE</span>
-                          <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: "700", color: "var(--text-display)" }}>
-                            {m.totalExpenditure.toFixed(2)} <span style={{ fontSize: "9px", fontFamily: "var(--font-data)", color: "var(--text-secondary)" }}>MYR</span>
+                          <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: "700", color: "var(--orange)" }}>
+                            {m.totalExpenditure.toFixed(2)} <span style={{ fontSize: "10px", fontFamily: "var(--font-data)", color: "var(--text-secondary)" }}>MYR</span>
                           </span>
                         </div>
 
