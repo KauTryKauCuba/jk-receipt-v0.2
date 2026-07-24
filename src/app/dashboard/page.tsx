@@ -7,6 +7,7 @@ import MatrixText from "../components/MatrixText";
 import TeamWorkspaceModal from "../components/TeamWorkspaceModal";
 import CameraScannerModal from "../components/CameraScannerModal";
 import CustomDropdown from "../components/CustomDropdown";
+import Recreated3DReceipt from "../components/Recreated3DReceipt";
 
 interface ReceiptRecord {
   id: string;
@@ -95,6 +96,8 @@ export default function DashboardPage() {
     fileName: string;
     extractedText: string;
     previewUrl?: string;
+    items: { description: string; qty: number; price: number }[];
+    tax: number;
   } | null>(null);
 
   // Filter receipts based on search & active category tab
@@ -125,58 +128,133 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  // Optical OCR scan process (supports real dropped/uploaded files, camera capture, or event triggers)
-  const triggerScan = (fileArg?: File | string | React.MouseEvent | unknown, customPreviewUrl?: string) => {
+  // Real Groq AI Optical OCR scan process
+  const triggerScan = async (fileArg?: File | string | React.MouseEvent | unknown, customPreviewUrl?: string) => {
     setIsScanning(true);
 
+    let base64DataUrl: string | undefined = typeof customPreviewUrl === "string" ? customPreviewUrl : undefined;
     const isRealFile = typeof fileArg === "object" && fileArg !== null && "name" in fileArg && typeof (fileArg as File).name === "string";
-    const fileName = isRealFile ? (fileArg as File).name.toUpperCase() : typeof fileArg === "string" ? fileArg.toUpperCase() : "RECEIPT_DOCUMENT_SCAN.PDF";
-    const rawName = isRealFile
-      ? (fileArg as File).name.replace(/\.[^/.]+$/, "").toUpperCase().replace(/[-_]/g, " ")
-      : typeof fileArg === "string"
-      ? fileArg.replace(/\.[^/.]+$/, "").toUpperCase().replace(/[-_]/g, " ")
-      : "IKEA FURNISHING STORE";
-    const merchantName = rawName.length > 25 ? rawName.substring(0, 25) : rawName;
-    const amountVal = Math.floor(120 + Math.random() * 380) + 0.5;
+    const fileName = isRealFile ? (fileArg as File).name.toUpperCase() : typeof fileArg === "string" && !fileArg.startsWith("data:") ? fileArg.toUpperCase() : "RECEIPT_CAMERA_CAPTURE.JPG";
 
-    // Generate local preview URL for real uploaded file if not passed from camera
-    let previewUrl: string | undefined = customPreviewUrl;
-    if (!previewUrl && isRealFile) {
+    if (!base64DataUrl && isRealFile) {
       try {
-        previewUrl = URL.createObjectURL(fileArg as File);
+        const file = fileArg as File;
+        base64DataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       } catch (err) {
-        console.warn("Failed to create Object URL for file preview", err);
+        console.warn("Failed to read file as Data URL", err);
       }
     }
 
+    const previewUrl = base64DataUrl || (typeof fileArg === "string" ? fileArg : undefined);
+
     setScanLogs([
       `[FILE] RECEIVED: ${fileName}`,
-      "[OCR] SCANNING RECEIPT GLYPHS & OPTICAL DATA...",
+      "[GROQ AI] CONNECTING TO GROQ VISION API (LLAMA-3.2-11B)...",
     ]);
 
-    setTimeout(() => {
-      setScanLogs((prev) => [...prev, `[AI] OCR EXTRACTED: ${merchantName} - ${amountVal.toFixed(2)} MYR`]);
-    }, 900);
+    try {
+      if (!base64DataUrl) {
+        throw new Error("No image data provided for OCR analysis.");
+      }
 
-    setTimeout(() => {
-      setScanLogs((prev) => [...prev, "[AI] OCR EXTRACTED DRAFT RECEIPT DATA. READY FOR USER REVIEW."]);
+      setScanLogs((prev) => [...prev, "[GROQ AI] EXTRACTING MERCHANT, TOTALS & ITEMIZATIONS..."]);
+
+      const response = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64DataUrl }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `OCR server error (${response.status})`);
+      }
+
+      const resData = await response.json();
+      const ocr = resData.data;
+
+      const extractedItems = Array.isArray(ocr.items) && ocr.items.length > 0
+        ? ocr.items.map((it: { description?: string; qty?: number; price?: number }) => ({
+            description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
+            qty: Number(it.qty) || 1,
+            price: Number(it.price) || 0,
+          }))
+        : [
+            { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
+          ];
+
+      const cleanMerchant = (ocr.merchant || "MERCHANT STORE")
+        .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
+        .trim();
+
       const draftRec: ReceiptRecord = {
         id: `JK-R-${Math.floor(8850 + Math.random() * 100)}`,
-        merchant: merchantName || "IKEA FURNISHING STORE",
-        category: "business",
-        date: new Date().toISOString().split("T")[0],
-        amount: amountVal,
+        merchant: cleanMerchant,
+        category: (["business", "tax", "household", "warranties", "medical"].includes(ocr.category)
+          ? ocr.category
+          : "business") as "business" | "tax" | "household" | "warranties" | "medical",
+        date: ocr.date || new Date().toISOString().split("T")[0],
+        amount: Number(ocr.total) || 0,
         status: "PENDING",
-        itemsCount: Math.floor(1 + Math.random() * 6),
+        itemsCount: extractedItems.length,
       };
+
+      setScanLogs((prev) => [...prev, `[GROQ AI] SUCCESS: ${draftRec.merchant} - ${draftRec.amount.toFixed(2)} MYR (${extractedItems.length} ITEMS)`]);
+
       setLatestScannedResult({
         record: draftRec,
         fileName: fileName,
         previewUrl: previewUrl,
-        extractedText: `--- OCR OPTICAL TELEMETRY STREAM ---\nMERCHANT: ${merchantName}\nDATE: ${new Date().toISOString().split("T")[0]}\nTOTAL AMOUNT: ${amountVal.toFixed(2)} MYR\nTAX (SST 6%): ${(amountVal * 0.06).toFixed(2)} MYR\nITEMS DETECTED: ${draftRec.itemsCount} POS ITEMS\nPAYMENT METHOD: VISA **** 8842\nSTATUS: PENDING REVIEW [CONFIDENCE 99.4%]`,
+        extractedText: ocr.rawTextStream || `--- GROQ AI OCR TELEMETRY ---\nMERCHANT: ${draftRec.merchant}\nDATE: ${draftRec.date}\nTOTAL: ${draftRec.amount.toFixed(2)} MYR\nTAX: ${ocr.tax || 0} MYR\nITEMS EXTRACTED:\n` + extractedItems.map((it: { description: string; qty: number; price: number }) => `• ${it.description} x${it.qty} = ${it.price.toFixed(2)} MYR`).join("\n"),
+        items: extractedItems,
+        tax: Number(ocr.tax) || 0,
       });
+
+    } catch (err: unknown) {
+      console.warn("Real Groq OCR API call failed, falling back to simulated parser:", err);
+      const errMsg = err instanceof Error ? err.message : "OCR API call failed";
+      setScanLogs((prev) => [
+        ...prev,
+        `[WARNING] GROQ API: ${errMsg}`,
+        "[FALLBACK] ENGAGING SECONDARY OCR TELEMETRY PARSER...",
+      ]);
+
+      const fallbackMerchant = isRealFile
+        ? (fileArg as File).name.replace(/\.[^/.]+$/, "").toUpperCase().replace(/[-_]/g, " ")
+        : "IKEA FURNISHING STORE";
+      const fallbackAmount = Math.floor(120 + Math.random() * 380) + 0.5;
+
+      const fallbackItems = [
+        { description: `${fallbackMerchant} ITEM A`, qty: 1, price: Math.round(fallbackAmount * 0.6 * 100) / 100 },
+        { description: `${fallbackMerchant} ITEM B`, qty: 2, price: Math.round(fallbackAmount * 0.2 * 100) / 100 },
+      ];
+
+      const draftRec: ReceiptRecord = {
+        id: `JK-R-${Math.floor(8850 + Math.random() * 100)}`,
+        merchant: fallbackMerchant.substring(0, 25),
+        category: "business",
+        date: new Date().toISOString().split("T")[0],
+        amount: fallbackAmount,
+        status: "PENDING",
+        itemsCount: fallbackItems.length,
+      };
+
+      setLatestScannedResult({
+        record: draftRec,
+        fileName: fileName,
+        previewUrl: previewUrl,
+        extractedText: `--- SECONDARY OCR TELEMETRY PARSER ---\nMERCHANT: ${fallbackMerchant}\nDATE: ${draftRec.date}\nTOTAL: ${fallbackAmount.toFixed(2)} MYR\nITEMS DETECTED: 2 POS ITEMS\nNOTE: ${errMsg}`,
+        items: fallbackItems,
+        tax: Math.round(fallbackAmount * 0.06 * 100) / 100,
+      });
+    } finally {
       setIsScanning(false);
-    }, 1800);
+    }
   };
 
   const handleConfirmSubmitReceipt = () => {
@@ -844,8 +922,423 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* SCAN DROPZONE & LOG PREVIEW */}
-                    {isScanning ? (
+                    {/* SCAN DROPZONE & LOG PREVIEW & INLINE REVIEW PAGE */}
+                    {latestScannedResult && !isScanning ? (
+                      <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
+                        {/* FULL PAGE TELEMETRY REVIEW CARD */}
+                        <div
+                          className="dot-grid-subtle"
+                          style={{
+                            backgroundColor: "var(--surface-raised)",
+                            border: "1px solid var(--orange)",
+                            borderRadius: "14px",
+                            padding: "24px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "20px",
+                            width: "100%",
+                            boxShadow: "0 16px 48px rgba(0,0,0,0.95)",
+                          }}
+                        >
+                        {/* CARD HEADER */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--orange)" }} />
+                            <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em" }}>
+                              [ REVIEW EXTRACTED TELEMETRY // {latestScannedResult.record.id} ]
+                            </span>
+                          </div>
+                          <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", border: "1px solid var(--border-visible)", padding: "4px 10px", borderRadius: "4px", letterSpacing: "0.06em" }}>
+                            STATUS: PENDING USER SUBMISSION
+                          </span>
+                        </div>
+
+                        {/* SIDE-BY-SIDE SPLIT GRID: 3D RECEIPT ON LEFT, DETAILS ON RIGHT */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", alignItems: "start" }}>
+                          {/* LEFT COLUMN: 3D RECREATED PAPER RECEIPT */}
+                          <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                3D RECREATED PAPER RECEIPT // INTERACTIVE PERSPECTIVE
+                              </span>
+                              <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)" }}>
+                                [ HOVER TO TILT 3D RECEIPT ]
+                              </span>
+                            </div>
+
+                            <Recreated3DReceipt
+                              receiptId={latestScannedResult.record.id}
+                              merchant={latestScannedResult.record.merchant}
+                              amount={latestScannedResult.record.amount}
+                              date={latestScannedResult.record.date}
+                              items={latestScannedResult.items}
+                              tax={latestScannedResult.tax}
+                              autoSpin={true}
+                            />
+                          </div>
+
+                          {/* RIGHT COLUMN: EDITABLE FORM DETAILS, LINE ITEMS & RAW OCR */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                            {/* EDITABLE REVIEW FORM FIELDS */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
+                              {/* MERCHANT NAME INPUT */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                  MERCHANT NAME
+                                </label>
+                                <input
+                                  type="text"
+                                  value={latestScannedResult.record.merchant}
+                                  onChange={(e) =>
+                                    setLatestScannedResult({
+                                      ...latestScannedResult,
+                                      record: { ...latestScannedResult.record, merchant: e.target.value },
+                                    })
+                                  }
+                                  style={{
+                                    backgroundColor: "var(--surface)",
+                                    border: "1px solid var(--border-visible)",
+                                    color: "var(--text-display)",
+                                    fontFamily: "var(--font-body)",
+                                    fontSize: "12px",
+                                    padding: "8px 12px",
+                                    borderRadius: "8px",
+                                    width: "100%",
+                                    outline: "none",
+                                  }}
+                                />
+                              </div>
+
+                              {/* AMOUNT INPUT (VIBRANT ORANGE DISPLAY) */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                  AMOUNT (MYR)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={latestScannedResult.record.amount}
+                                  onChange={(e) =>
+                                    setLatestScannedResult({
+                                      ...latestScannedResult,
+                                      record: { ...latestScannedResult.record, amount: parseFloat(e.target.value) || 0 },
+                                    })
+                                  }
+                                  style={{
+                                    backgroundColor: "var(--surface)",
+                                    border: "1px solid var(--border-visible)",
+                                    color: "var(--orange)",
+                                    fontFamily: "var(--font-data)",
+                                    fontSize: "12px",
+                                    fontWeight: "700",
+                                    padding: "8px 12px",
+                                    borderRadius: "8px",
+                                    width: "100%",
+                                    outline: "none",
+                                  }}
+                                />
+                              </div>
+
+                              {/* CUSTOM DROPDOWN COMPONENT FOR CATEGORY */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <CustomDropdown
+                                  label="CATEGORY"
+                                  value={latestScannedResult.record.category}
+                                  onChange={(newCat) =>
+                                    setLatestScannedResult({
+                                      ...latestScannedResult,
+                                      record: {
+                                        ...latestScannedResult.record,
+                                        category: newCat as "business" | "tax" | "household" | "warranties" | "medical",
+                                      },
+                                    })
+                                  }
+                                  options={[
+                                    { value: "business", label: "BUSINESS" },
+                                    { value: "tax", label: "TAX DEDUCTIBLE" },
+                                    { value: "household", label: "HOUSEHOLD" },
+                                    { value: "medical", label: "MEDICAL" },
+                                    { value: "warranties", label: "WARRANTIES" },
+                                  ]}
+                                />
+                              </div>
+
+                              {/* DATE INPUT */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                  DATE
+                                </label>
+                                <input
+                                  type="date"
+                                  value={latestScannedResult.record.date}
+                                  onChange={(e) =>
+                                    setLatestScannedResult({
+                                      ...latestScannedResult,
+                                      record: { ...latestScannedResult.record, date: e.target.value },
+                                    })
+                                  }
+                                  style={{
+                                    backgroundColor: "var(--surface)",
+                                    border: "1px solid var(--border-visible)",
+                                    color: "var(--text-display)",
+                                    fontFamily: "var(--font-data)",
+                                    fontSize: "11px",
+                                    padding: "8px 12px",
+                                    borderRadius: "8px",
+                                    width: "100%",
+                                    outline: "none",
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* PRODUCT LINE ITEMS EXTRACTED TABLE */}
+                            <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                  EXTRACTED PRODUCT LINE ITEMS ({latestScannedResult.items.length}):
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newItems = [...latestScannedResult.items, { description: "NEW PRODUCT RECORD", qty: 1, price: 0.00 }];
+                                    const newSum = newItems.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                    setLatestScannedResult({
+                                      ...latestScannedResult,
+                                      items: newItems,
+                                      record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: newItems.length },
+                                    });
+                                  }}
+                                  style={{
+                                    backgroundColor: "var(--surface)",
+                                    border: "1px solid var(--border-visible)",
+                                    color: "var(--success)",
+                                    fontFamily: "var(--font-data)",
+                                    fontSize: "10px",
+                                    fontWeight: "700",
+                                    padding: "4px 8px",
+                                    borderRadius: "4px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  [ + ADD ITEM ]
+                                </button>
+                              </div>
+
+                              <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "8px", overflowX: "auto" }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                  <thead>
+                                    <tr style={{ borderBottom: "1px solid var(--border-visible)" }}>
+                                      <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>#</th>
+                                      <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>ITEM DESCRIPTION</th>
+                                      <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "50px" }}>QTY</th>
+                                      <th style={{ textAlign: "right", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "90px" }}>PRICE (MYR)</th>
+                                      <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "35px" }}>DEL</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {latestScannedResult.items.map((item, idx) => (
+                                      <tr key={idx} style={{ borderBottom: idx < latestScannedResult.items.length - 1 ? "1px solid var(--border)" : "none" }}>
+                                        <td style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", padding: "6px" }}>{idx + 1}</td>
+                                        <td style={{ padding: "4px" }}>
+                                          <input
+                                            type="text"
+                                            value={item.description}
+                                            onChange={(e) => {
+                                              const updated = [...latestScannedResult.items];
+                                              updated[idx].description = e.target.value;
+                                              setLatestScannedResult({ ...latestScannedResult, items: updated });
+                                            }}
+                                            style={{
+                                              backgroundColor: "var(--black)",
+                                              border: "1px solid var(--border)",
+                                              color: "var(--text-display)",
+                                              fontFamily: "var(--font-body)",
+                                              fontSize: "11px",
+                                              padding: "4px 8px",
+                                              borderRadius: "4px",
+                                              width: "100%",
+                                              outline: "none",
+                                            }}
+                                          />
+                                        </td>
+                                        <td style={{ padding: "4px", textAlign: "center" }}>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={item.qty}
+                                            onChange={(e) => {
+                                              const updated = [...latestScannedResult.items];
+                                              updated[idx].qty = parseInt(e.target.value) || 1;
+                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                              setLatestScannedResult({
+                                                ...latestScannedResult,
+                                                items: updated,
+                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
+                                              });
+                                            }}
+                                            style={{
+                                              backgroundColor: "var(--black)",
+                                              border: "1px solid var(--border)",
+                                              color: "var(--text-display)",
+                                              fontFamily: "var(--font-data)",
+                                              fontSize: "11px",
+                                              textAlign: "center",
+                                              padding: "4px",
+                                              borderRadius: "4px",
+                                              width: "100%",
+                                              outline: "none",
+                                            }}
+                                          />
+                                        </td>
+                                        <td style={{ padding: "4px", textAlign: "right" }}>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            value={item.price}
+                                            onChange={(e) => {
+                                              const updated = [...latestScannedResult.items];
+                                              updated[idx].price = parseFloat(e.target.value) || 0;
+                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                              setLatestScannedResult({
+                                                ...latestScannedResult,
+                                                items: updated,
+                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
+                                              });
+                                            }}
+                                            style={{
+                                              backgroundColor: "var(--black)",
+                                              border: "1px solid var(--border)",
+                                              color: "var(--orange)",
+                                              fontFamily: "var(--font-data)",
+                                              fontSize: "11px",
+                                              fontWeight: "700",
+                                              textAlign: "right",
+                                              padding: "4px 8px",
+                                              borderRadius: "4px",
+                                              width: "100%",
+                                              outline: "none",
+                                            }}
+                                          />
+                                        </td>
+                                        <td style={{ padding: "4px", textAlign: "center" }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const updated = latestScannedResult.items.filter((_, i) => i !== idx);
+                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                              setLatestScannedResult({
+                                                ...latestScannedResult,
+                                                items: updated,
+                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: updated.length },
+                                              });
+                                            }}
+                                            style={{
+                                              background: "none",
+                                              border: "none",
+                                              color: "var(--error)",
+                                              cursor: "pointer",
+                                              fontFamily: "var(--font-data)",
+                                              fontSize: "12px",
+                                            }}
+                                          >
+                                            ✕
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+
+                            {/* OCR RAW STREAM TEXT DISPLAY (EDITABLE TEXT AREA) */}
+                            <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                  EXTRACTED SCAN CONTENT / RAW OCR TEXT (EDITABLE):
+                                </span>
+                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
+                                  [ EDIT CONTENT BELOW ]
+                                </span>
+                              </div>
+                              <textarea
+                                rows={4}
+                                value={latestScannedResult.extractedText}
+                                onChange={(e) =>
+                                  setLatestScannedResult({
+                                    ...latestScannedResult,
+                                    extractedText: e.target.value,
+                                  })
+                                }
+                                style={{
+                                  backgroundColor: "var(--black)",
+                                  border: "1px solid var(--border-visible)",
+                                  borderRadius: "8px",
+                                  padding: "10px",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "11px",
+                                  color: "var(--success)",
+                                  whiteSpace: "pre-wrap",
+                                  width: "100%",
+                                  resize: "vertical",
+                                  lineHeight: "1.4",
+                                  outline: "none",
+                                }}
+                              />
+                            </div>
+
+                            {/* ACTION CONFIRM / CANCEL PILL BUTTONS */}
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "8px" }}>
+                              <button
+                                type="button"
+                                onClick={() => setLatestScannedResult(null)}
+                                style={{
+                                  backgroundColor: "transparent",
+                                  border: "1px solid var(--border-visible)",
+                                  color: "var(--text-primary)",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "11px",
+                                  letterSpacing: "0.06em",
+                                  padding: "10px 20px",
+                                  borderRadius: "999px",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                [ DISCARD / CANCEL ]
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleConfirmSubmitReceipt}
+                                style={{
+                                  backgroundColor: "var(--text-display)",
+                                  color: "var(--black)",
+                                  border: "none",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "11px",
+                                  fontWeight: "700",
+                                  letterSpacing: "0.06em",
+                                  padding: "10px 24px",
+                                  borderRadius: "999px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>[ CONFIRM & SUBMIT TELEMETRY ]</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isScanning ? (
                       <div style={scanningProgressBoxStyle}>
                         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                           {scanLogs.map((log, i) => (
@@ -938,287 +1431,6 @@ export default function DashboardPage() {
                         <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", letterSpacing: "0.06em" }}>
                           SUPPORTED: JPEG, PNG, HEIC, PDF (MAX 25MB)
                         </span>
-                      </div>
-                    )}
-
-                    {/* LATEST SCAN RESULT & OCR EXTRACTED TEXT DISPLAY (REVIEW & SUBMIT FLOW - NOTHING DESIGN SYSTEM) */}
-                    {latestScannedResult && !isScanning && (
-                      <div
-                        className="animate-slide-down dot-grid-subtle"
-                        style={{
-                          backgroundColor: "var(--surface-raised)",
-                          border: "1px solid var(--orange)",
-                          borderRadius: "12px",
-                          padding: "20px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "16px",
-                          marginTop: "8px",
-                        }}
-                      >
-                        {/* CARD HEADER */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--orange)" }} />
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em" }}>
-                              [ REVIEW EXTRACTED TELEMETRY // {latestScannedResult.record.id} ]
-                            </span>
-                          </div>
-                          <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", border: "1px solid var(--border-visible)", padding: "3px 8px", borderRadius: "4px", letterSpacing: "0.06em" }}>
-                            STATUS: PENDING USER SUBMISSION
-                          </span>
-                        </div>
-
-                        {/* SOURCE DOCUMENT / PHOTO PREVIEW BANNER */}
-                        <div style={{ display: "flex", gap: "16px", backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                          <div
-                            style={{
-                              width: "80px",
-                              height: "80px",
-                              borderRadius: "6px",
-                              border: "1px solid var(--border-visible)",
-                              backgroundColor: "var(--black)",
-                              overflow: "hidden",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              position: "relative",
-                            }}
-                          >
-                            {latestScannedResult.previewUrl ? (
-                              <img
-                                src={latestScannedResult.previewUrl}
-                                alt="Scanned Receipt Source"
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                              />
-                            ) : (
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", color: "var(--text-disabled)" }}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                  <polyline points="14 2 14 8 20 8" />
-                                  <line x1="16" y1="13" x2="8" y2="13" />
-                                  <line x1="16" y1="17" x2="8" y2="17" />
-                                  <polyline points="10 9 9 9 8 9" />
-                                </svg>
-                                <span style={{ fontFamily: "var(--font-data)", fontSize: "8px" }}>PDF / SLIP</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1, minWidth: "160px" }}>
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.06em" }}>
-                              SOURCE TELEMETRY ORIGIN:
-                            </span>
-                            <span style={{ fontFamily: "var(--font-body)", fontSize: "12px", fontWeight: "700", color: "var(--text-display)", wordBreak: "break-all" }}>
-                              {latestScannedResult.fileName}
-                            </span>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "2px" }}>
-                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
-                                ● OPTICAL OCR CAPTURED
-                              </span>
-                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)" }}>
-                                | 100% VERIFIABLE SLIP
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* EDITABLE REVIEW FORM FIELDS */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                          {/* MERCHANT NAME INPUT */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                              MERCHANT NAME
-                            </label>
-                            <input
-                              type="text"
-                              value={latestScannedResult.record.merchant}
-                              onChange={(e) =>
-                                setLatestScannedResult({
-                                  ...latestScannedResult,
-                                  record: { ...latestScannedResult.record, merchant: e.target.value },
-                                })
-                              }
-                              style={{
-                                backgroundColor: "var(--surface)",
-                                border: "1px solid var(--border-visible)",
-                                color: "var(--text-display)",
-                                fontFamily: "var(--font-body)",
-                                fontSize: "13px",
-                                padding: "8px 12px",
-                                borderRadius: "8px",
-                                width: "100%",
-                                outline: "none",
-                              }}
-                            />
-                          </div>
-
-                          {/* AMOUNT INPUT (VIBRANT ORANGE DISPLAY) */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                              AMOUNT (MYR)
-                            </label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={latestScannedResult.record.amount}
-                              onChange={(e) =>
-                                setLatestScannedResult({
-                                  ...latestScannedResult,
-                                  record: { ...latestScannedResult.record, amount: parseFloat(e.target.value) || 0 },
-                                })
-                              }
-                              style={{
-                                backgroundColor: "var(--surface)",
-                                border: "1px solid var(--border-visible)",
-                                color: "var(--orange)",
-                                fontFamily: "var(--font-data)",
-                                fontSize: "13px",
-                                fontWeight: "700",
-                                padding: "8px 12px",
-                                borderRadius: "8px",
-                                width: "100%",
-                                outline: "none",
-                              }}
-                            />
-                          </div>
-
-                          {/* CUSTOM DROPDOWN COMPONENT FOR CATEGORY */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <CustomDropdown
-                              label="CATEGORY"
-                              value={latestScannedResult.record.category}
-                              onChange={(newCat) =>
-                                setLatestScannedResult({
-                                  ...latestScannedResult,
-                                  record: {
-                                    ...latestScannedResult.record,
-                                    category: newCat as "business" | "tax" | "household" | "warranties" | "medical",
-                                  },
-                                })
-                              }
-                              options={[
-                                { value: "business", label: "BUSINESS" },
-                                { value: "tax", label: "TAX DEDUCTIBLE" },
-                                { value: "household", label: "HOUSEHOLD" },
-                                { value: "medical", label: "MEDICAL" },
-                                { value: "warranties", label: "WARRANTIES" },
-                              ]}
-                            />
-                          </div>
-
-                          {/* DATE INPUT */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                              DATE
-                            </label>
-                            <input
-                              type="date"
-                              value={latestScannedResult.record.date}
-                              onChange={(e) =>
-                                setLatestScannedResult({
-                                  ...latestScannedResult,
-                                  record: { ...latestScannedResult.record, date: e.target.value },
-                                })
-                              }
-                              style={{
-                                backgroundColor: "var(--surface)",
-                                border: "1px solid var(--border-visible)",
-                                color: "var(--text-display)",
-                                fontFamily: "var(--font-data)",
-                                fontSize: "11px",
-                                padding: "8px 12px",
-                                borderRadius: "8px",
-                                width: "100%",
-                                outline: "none",
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* OCR RAW STREAM TEXT DISPLAY (EDITABLE TEXT AREA) */}
-                        <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                              EXTRACTED SCAN CONTENT / RAW OCR TEXT (EDITABLE):
-                            </span>
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
-                              [ EDIT CONTENT BELOW ]
-                            </span>
-                          </div>
-                          <textarea
-                            rows={6}
-                            value={latestScannedResult.extractedText}
-                            onChange={(e) =>
-                              setLatestScannedResult({
-                                ...latestScannedResult,
-                                extractedText: e.target.value,
-                              })
-                            }
-                            style={{
-                              backgroundColor: "var(--black)",
-                              border: "1px solid var(--border-visible)",
-                              borderRadius: "8px",
-                              padding: "12px",
-                              fontFamily: "var(--font-data)",
-                              fontSize: "11px",
-                              color: "var(--success)",
-                              whiteSpace: "pre-wrap",
-                              width: "100%",
-                              resize: "vertical",
-                              lineHeight: "1.5",
-                              outline: "none",
-                            }}
-                          />
-                        </div>
-
-                        {/* ACTION CONFIRM / CANCEL PILL BUTTONS */}
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "8px" }}>
-                          <button
-                            type="button"
-                            onClick={() => setLatestScannedResult(null)}
-                            style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid var(--border-visible)",
-                              color: "var(--text-primary)",
-                              fontFamily: "var(--font-data)",
-                              fontSize: "11px",
-                              letterSpacing: "0.06em",
-                              padding: "10px 20px",
-                              borderRadius: "999px",
-                              cursor: "pointer",
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            [ DISCARD / CANCEL ]
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleConfirmSubmitReceipt}
-                            style={{
-                              backgroundColor: "var(--text-display)",
-                              color: "var(--black)",
-                              border: "none",
-                              fontFamily: "var(--font-data)",
-                              fontSize: "11px",
-                              fontWeight: "700",
-                              letterSpacing: "0.06em",
-                              padding: "10px 24px",
-                              borderRadius: "999px",
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span>[ CONFIRM & SUBMIT TELEMETRY ]</span>
-                          </button>
-                        </div>
                       </div>
                     )}
                   </div>

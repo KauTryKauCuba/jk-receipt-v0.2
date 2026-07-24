@@ -44,8 +44,8 @@ export default function CameraScannerModal({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
           },
           audio: false,
         });
@@ -89,6 +89,34 @@ export default function CameraScannerModal({
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      }
+    } else {
+      // Fallback generator for simulation mode (e.g. desktop environment without physical camera attached)
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 900;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, 600, 900);
+        ctx.fillStyle = "#000000";
+        ctx.font = "bold 24px monospace";
+        ctx.fillText("JEJAKU SUPERMARKET KLCC", 120, 80);
+        ctx.font = "16px monospace";
+        ctx.fillText("DATE: 2026-07-24   TIME: 14:30", 120, 120);
+        ctx.fillText("---------------------------------", 120, 150);
+        ctx.fillText("ORGANIC MILK 2L      x1  RM 14.50", 120, 190);
+        ctx.fillText("WHOLE WHEAT BREAD    x2  RM 11.00", 120, 230);
+        ctx.fillText("FRESH AVOCADO 3PK    x1  RM 18.90", 120, 270);
+        ctx.fillText("PREMIUM COFFEE BEANS x1  RM 38.00", 120, 310);
+        ctx.fillText("---------------------------------", 120, 350);
+        ctx.fillText("SUBTOTAL:                RM 82.40", 120, 390);
+        ctx.fillText("SST 6%:                  RM  4.94", 120, 430);
+        ctx.font = "bold 20px monospace";
+        ctx.fillText("TOTAL PAID:              RM 87.34", 120, 480);
+        ctx.font = "14px monospace";
+        ctx.fillText("THANK YOU FOR SHOPPING WITH US!", 120, 540);
         dataUrl = canvas.toDataURL("image/jpeg", 0.9);
       }
     }
