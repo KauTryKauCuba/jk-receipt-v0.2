@@ -811,7 +811,7 @@ export default function DashboardPage() {
                       SYS // ARCHIVAL TELEMETRY CONSOLE v0.2
                     </span>
                     <h1 style={{ fontFamily: "var(--font-body)", fontSize: "var(--display-md)", fontWeight: "700", color: "var(--text-display)", margin: 0, letterSpacing: "-0.02em", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                      <MatrixText text="OPERATOR TELEMETRY DASHBOARD" />
+                      OPERATOR TELEMETRY DASHBOARD
                     </h1>
                     <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", marginTop: "2px" }}>
                       &gt; REAL-TIME SCANNER FEED &amp; ENCRYPTED LOCAL ARCHIVE

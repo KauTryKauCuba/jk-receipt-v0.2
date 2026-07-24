@@ -151,8 +151,7 @@ export default function MatrixText({
   return (
     <span
       className={className}
-      style={{ ...style, display: "inline-flex", cursor: "default" }}
-      onMouseEnter={() => triggerAnimation(true)}
+      style={{ ...style, display: "inline-block", cursor: "default" }}
     >
       {chars.map((charState, index) => (
         <span
