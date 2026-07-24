@@ -97,7 +97,7 @@ export default function CameraScannerModal({
       setIsCapturing(false);
       stopCamera();
       onCapture(dataUrl);
-    }, 600);
+    }, 250);
   };
 
   if (!isOpen) return null;
@@ -342,16 +342,16 @@ export default function CameraScannerModal({
             </div>
           </div>
 
-          {/* CAPTURE FLASH ANIMATION OVERLAY */}
+          {/* CAPTURE FLASH & SHUTTER ANIMATION OVERLAY */}
           {isCapturing && (
             <div
               style={{
                 position: "absolute",
                 inset: 0,
-                backgroundColor: "#ffffff",
-                opacity: 0.85,
+                backgroundColor: "rgba(255, 255, 255, 0.4)",
+                backdropFilter: "blur(2px)",
                 zIndex: 10,
-                transition: "opacity 0.5s ease-out",
+                animation: "camera-shutter-flash 0.3s ease-out forwards",
               }}
             />
           )}

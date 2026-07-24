@@ -65,15 +65,23 @@ export default function DashboardSidebar({
     <aside className="dashboard-sidebar dot-grid-subtle" style={{ ...sidebarStyle, width: isSidebarCollapsed ? "70px" : "250px" }}>
       {/* Sidebar Header */}
       <div className="dashboard-sidebar-header" style={sidebarHeaderStyle}>
-        <Link href="/" className="logo-badge" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-          <span className="logo-symbol" style={logoIconSquareStyle}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
-              <path d="M8 8h8" />
-              <path d="M8 12h8" />
-              <path d="M8 16h5" />
-            </svg>
-          </span>
+        <Link href="/" className="logo-badge" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ color: "var(--text-display)", flexShrink: 0 }}
+          >
+            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+            <path d="M8 8h8" />
+            <path d="M8 12h8" />
+            <path d="M8 16h5" />
+          </svg>
           {!isSidebarCollapsed && (
             <span className="logo-text" style={{ fontFamily: "var(--font-data)", fontSize: "11px", letterSpacing: "0.08em", whiteSpace: "nowrap", color: "var(--text-display)", fontWeight: "700" }}>
               JEJAKU <span style={{ color: "var(--text-secondary)", fontWeight: "400" }}>RECEIPT</span>
@@ -222,52 +230,15 @@ export default function DashboardSidebar({
             ),
           },
           {
-            id: "closed_periods",
-            label: "CLOSED PERIODS",
-            href: "#",
-            icon: (
-              <svg className="sb-icon-closed_periods" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            ),
-          },
-          {
-            id: "tags",
-            label: "TAGS",
-            href: "#",
-            icon: (
-              <svg className="sb-icon-tags" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="9" x2="20" y2="9" />
-                <line x1="4" y1="15" x2="20" y2="15" />
-                <line x1="10" y1="3" x2="8" y2="21" />
-                <line x1="16" y1="3" x2="14" y2="21" />
-              </svg>
-            ),
-          },
-          {
             id: "team",
             label: "TEAM",
-            href: "#",
+            href: "/dashboard/team",
             icon: (
               <svg className="sb-icon-team" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            ),
-          },
-          {
-            id: "integrations",
-            label: "INTEGRATIONS",
-            href: "#",
-            icon: (
-              <svg className="sb-icon-integrations" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="17 1 21 5 17 9" />
-                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                <polyline points="7 23 3 19 7 15" />
-                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
               </svg>
             ),
           },
@@ -310,9 +281,6 @@ export default function DashboardSidebar({
             <Link
               key={item.id}
               href={item.href}
-              onClick={(e) => {
-                if (item.id === "team") { e.preventDefault(); onOpenTeamModal?.(); }
-              }}
               className={`nav-link ${isActive ? "active" : ""}`}
               style={{
                 ...sidebarNavItemStyle,
@@ -409,7 +377,6 @@ export default function DashboardSidebar({
 
 const sidebarStyle: React.CSSProperties = { backgroundColor: "var(--surface)", borderRight: "1px solid var(--border-visible)", display: "flex", flexDirection: "column", transition: "width 0.2s ease", position: "sticky", top: 0, height: "100vh", zIndex: 10, flexShrink: 0 };
 const sidebarHeaderStyle: React.CSSProperties = { padding: "14px 12px", borderBottom: "1px solid var(--border-visible)", display: "flex", alignItems: "center", justifyContent: "space-between" };
-const logoIconSquareStyle: React.CSSProperties = { width: "28px", height: "28px", backgroundColor: "var(--text-display)", color: "var(--black)", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
 const sidebarCollapseBtnStyle: React.CSSProperties = { background: "none", border: "1px solid var(--border-visible)", color: "var(--text-secondary)", fontFamily: "var(--font-data)", fontSize: "11px", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" };
 const sidebarNavItemStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "6px", border: "none", background: "none", cursor: "pointer", width: "100%", textAlign: "left", transition: "all 0.15s ease" };
 const sidebarFooterStyle: React.CSSProperties = { padding: "12px", borderTop: "1px solid var(--border-visible)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" };

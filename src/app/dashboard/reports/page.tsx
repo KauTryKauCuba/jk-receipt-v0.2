@@ -380,7 +380,7 @@ export default function ReportsPage() {
                           d={generateCubicPath(MONTHLY_TREND_DATA, "gross")}
                           fill="none"
                           stroke="var(--orange)"
-                          strokeWidth="2.5"
+                          strokeWidth="1.25"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           style={{ transition: "opacity 0.3s ease" }}
@@ -391,7 +391,7 @@ export default function ReportsPage() {
                           d={generateCubicPath(MONTHLY_TREND_DATA, "tax")}
                           fill="none"
                           stroke="var(--success)"
-                          strokeWidth="2.5"
+                          strokeWidth="1.25"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           style={{ transition: "opacity 0.3s ease" }}
@@ -417,20 +417,20 @@ export default function ReportsPage() {
                         <circle
                           cx={X_COORDS[activeTrendIdx]}
                           cy={getYCoord(MONTHLY_TREND_DATA[activeTrendIdx].gross)}
-                          r="6"
+                          r="5"
                           fill="var(--surface)"
                           stroke="var(--orange)"
-                          strokeWidth="2.5"
+                          strokeWidth="1.5"
                         />
                       )}
                       {showTaxLayer && (
                         <circle
                           cx={X_COORDS[activeTrendIdx]}
                           cy={getYCoord(MONTHLY_TREND_DATA[activeTrendIdx].tax)}
-                          r="6"
+                          r="5"
                           fill="var(--surface)"
                           stroke="var(--success)"
-                          strokeWidth="2.5"
+                          strokeWidth="1.5"
                           filter="url(#glowGreen)"
                         />
                       )}
