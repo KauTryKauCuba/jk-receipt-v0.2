@@ -25,12 +25,7 @@ export default function DashboardSidebar({
     }
     return false;
   });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return window.innerWidth <= 768;
-    }
-    return true;
-  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const toggleTheme = () => {
     const newMode = !isLightMode;
@@ -67,7 +62,7 @@ export default function DashboardSidebar({
   }, [isLightMode]);
 
   return (
-    <aside className="dashboard-sidebar dot-grid-subtle" style={{ ...sidebarStyle, width: isSidebarCollapsed ? "70px" : "250px" }}>
+    <aside className={`dashboard-sidebar dot-grid-subtle ${isSidebarCollapsed ? "collapsed" : "expanded"}`} style={{ ...sidebarStyle, width: isSidebarCollapsed ? "70px" : "250px" }}>
       {/* Sidebar Header */}
       <div className="dashboard-sidebar-header" style={sidebarHeaderStyle}>
         <Link href="/" className="logo-badge" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>

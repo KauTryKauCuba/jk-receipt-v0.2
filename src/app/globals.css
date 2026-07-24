@@ -1052,6 +1052,14 @@ input[type="number"] {
     gap: 8px !important;
   }
 
+  .dashboard-sidebar:not(.expanded) {
+    width: 70px !important;
+  }
+
+  .dashboard-sidebar:not(.expanded) .logo-text {
+    display: none !important;
+  }
+
   .silver-card-face {
     padding: 12px 10px !important;
     border-radius: 10px !important;
