@@ -180,13 +180,13 @@ export default function DashboardPage() {
 
       const extractedItems = Array.isArray(ocr.items) && ocr.items.length > 0
         ? ocr.items.map((it: { description?: string; qty?: number; price?: number }) => ({
-          description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
-          qty: Number(it.qty) || 1,
-          price: Number(it.price) || 0,
-        }))
+            description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
+            qty: Number(it.qty) || 1,
+            price: Number(it.price) || 0,
+          }))
         : [
-          { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
-        ];
+            { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
+          ];
 
       const cleanMerchant = (ocr.merchant || "MERCHANT STORE")
         .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
@@ -308,7 +308,7 @@ export default function DashboardPage() {
 
       {/* MAIN DASHBOARD CONTENT AREA */}
       <main className="dashboard-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflowY: "auto" }}>
-
+        
         {/* REUSABLE NAVBAR COMPONENT */}
         <DashboardNavbar
           searchQuery={searchQuery}
@@ -320,7 +320,7 @@ export default function DashboardPage() {
 
         {/* DASHBOARD BODY CONTENT */}
         <div className="dashboard-body-padding animate-slide-left" key={activeNav} style={{ padding: "var(--space-md)", display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-
+          
           {activeNav === "documents" ? (
             /* DOCUMENTS VIEW IN-PLACE */
             <>
@@ -577,10 +577,10 @@ export default function DashboardPage() {
               {/* MONTHS CONTENT: CALENDAR GRID OR PERIOD CARDS */}
               {monthsViewMode === "CALENDAR" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-
+                  
                   {/* CALENDAR INSTRUMENT CONTAINER */}
                   <div className="dot-grid-subtle calendar-instrument-card" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "12px", padding: "20px" }}>
-
+                    
                     {/* CALENDAR HEADER CONTROLS */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -802,585 +802,582 @@ export default function DashboardPage() {
           ) : (
             /* OVERVIEW VIEW IN-PLACE */
             <>
-              {/* TOP HEADER ROW: OPERATOR TELEMETRY DASHBOARD (LEFT) & RECEIPT TELEMETRY SCANNER (RIGHT) */}
-              <div className="top-header-split-row" style={{ display: "flex", gap: "var(--space-md)", flexWrap: "wrap", width: "100%", alignItems: "stretch" }}>
-                {/* HERO TITLE BANNER (LEFT) */}
-                <div className="hero-banner-responsive dot-grid-subtle" style={{ ...heroBannerStyle, flex: 1, minWidth: "280px", margin: 0 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "100%", minWidth: 0 }}>
-                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", letterSpacing: "0.1em" }}>
-                      SYS // ARCHIVAL TELEMETRY CONSOLE v0.2
-                    </span>
-                    <h1 style={{ fontFamily: "var(--font-body)", fontSize: "var(--display-md)", fontWeight: "700", color: "var(--text-display)", margin: 0, letterSpacing: "-0.02em", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                      <MatrixText text="OPERATOR TELEMETRY DASHBOARD" />
-                    </h1>
-                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                      &gt; REAL-TIME SCANNER FEED &amp; ENCRYPTED LOCAL ARCHIVE
+              {/* QUICK SCAN INSTRUMENT CARD */}
+              <div className="dot-grid-subtle" style={panelCardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+                    </svg>
+                    <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.08em", color: "var(--text-display)" }}>
+                      [ RECEIPT TELEMETRY SCANNER ]
                     </span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-                    <span className="dot-pulse" style={{ backgroundColor: "var(--success)" }} />
-                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", letterSpacing: "0.08em" }}>
-                      [ ONLINE // TLS 1.3 ENCRYPTED ]
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      style={{
+                        backgroundColor: "var(--surface-raised)",
+                        border: "1px solid var(--border-visible)",
+                        color: "var(--text-display)",
+                        fontFamily: "var(--font-data)",
+                        fontSize: "10px",
+                        fontWeight: "700",
+                        padding: "4px 10px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                      <span>[ SCAN USING CAMERA ]</span>
+                    </button>
+                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
+                      ● READY
                     </span>
                   </div>
                 </div>
 
-                {/* QUICK SCAN INSTRUMENT CARD (RIGHT) */}
-                <div className="dot-grid-subtle" style={{ ...panelCardStyle, flex: 1, minWidth: "300px", margin: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
-                      </svg>
-                      <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.08em", color: "var(--text-display)" }}>
-                        [ RECEIPT TELEMETRY SCANNER ]
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => setIsCameraOpen(true)}
-                        style={{
-                          backgroundColor: "var(--surface-raised)",
-                          border: "1px solid var(--border-visible)",
-                          color: "var(--text-display)",
-                          fontFamily: "var(--font-data)",
-                          fontSize: "10px",
-                          fontWeight: "700",
-                          padding: "4px 10px",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          letterSpacing: "0.04em",
-                        }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                          <circle cx="12" cy="13" r="4" />
-                        </svg>
-                        <span>[ SCAN USING CAMERA ]</span>
-                      </button>
-                      <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
-                        ● READY
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SCAN DROPZONE & LOG PREVIEW & INLINE REVIEW PAGE */}
-                  {latestScannedResult && !isScanning ? (
-                    <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
-                      {/* FULL PAGE TELEMETRY REVIEW CARD */}
-                      <div
-                        className="dot-grid-subtle review-telemetry-card"
-                        style={{
-                          backgroundColor: "var(--surface-raised)",
-                          border: "1px solid var(--orange)",
-                          borderRadius: "14px",
-                          padding: "24px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "20px",
-                          width: "100%",
-                          maxWidth: "100%",
-                          boxShadow: "0 16px 48px rgba(0,0,0,0.95)",
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        {/* CARD HEADER */}
-                        <div className="review-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "14px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--orange)" }} />
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em", wordBreak: "break-word" }}>
-                              [ REVIEW EXTRACTED TELEMETRY // {latestScannedResult.record.id} ]
-                            </span>
-                          </div>
-                          <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", border: "1px solid var(--border-visible)", padding: "4px 10px", borderRadius: "4px", letterSpacing: "0.06em" }}>
-                            STATUS: PENDING USER SUBMISSION
+                {/* SCAN DROPZONE & LOG PREVIEW & INLINE REVIEW PAGE */}
+                {latestScannedResult && !isScanning ? (
+                  <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
+                    {/* FULL PAGE TELEMETRY REVIEW CARD */}
+                    <div
+                      className="dot-grid-subtle review-telemetry-card"
+                      style={{
+                        backgroundColor: "var(--surface-raised)",
+                        border: "1px solid var(--orange)",
+                        borderRadius: "14px",
+                        padding: "24px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "20px",
+                        width: "100%",
+                        maxWidth: "100%",
+                        boxShadow: "0 16px 48px rgba(0,0,0,0.95)",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {/* CARD HEADER */}
+                      <div className="review-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--orange)" }} />
+                          <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em", wordBreak: "break-word" }}>
+                            [ REVIEW EXTRACTED TELEMETRY // {latestScannedResult.record.id} ]
                           </span>
                         </div>
+                        <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", border: "1px solid var(--border-visible)", padding: "4px 10px", borderRadius: "4px", letterSpacing: "0.06em" }}>
+                          STATUS: PENDING USER SUBMISSION
+                        </span>
+                      </div>
 
-                        {/* SIDE-BY-SIDE SPLIT GRID: 3D RECEIPT ON LEFT, DETAILS ON RIGHT */}
-                        <div className="review-split-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", alignItems: "start", width: "100%", maxWidth: "100%" }}>
-                          {/* LEFT COLUMN: 3D RECREATED PAPER RECEIPT */}
-                          <div className="review-receipt-col" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                3D RECREATED PAPER RECEIPT // INTERACTIVE PERSPECTIVE
-                              </span>
-                              <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)" }}>
-                                [ HOVER TO TILT 3D RECEIPT ]
-                              </span>
-                            </div>
-
-                            <Recreated3DReceipt
-                              receiptId={latestScannedResult.record.id}
-                              merchant={latestScannedResult.record.merchant}
-                              amount={latestScannedResult.record.amount}
-                              date={latestScannedResult.record.date}
-                              items={latestScannedResult.items}
-                              tax={latestScannedResult.tax}
-                              autoSpin={true}
-                            />
+                      {/* SIDE-BY-SIDE SPLIT GRID: 3D RECEIPT ON LEFT, DETAILS ON RIGHT */}
+                      <div className="review-split-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", alignItems: "start", width: "100%", maxWidth: "100%" }}>
+                        {/* LEFT COLUMN: 3D RECREATED PAPER RECEIPT */}
+                        <div className="review-receipt-col" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                              3D RECREATED PAPER RECEIPT // INTERACTIVE PERSPECTIVE
+                            </span>
+                            <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)" }}>
+                              [ HOVER TO TILT 3D RECEIPT ]
+                            </span>
                           </div>
 
-                          {/* RIGHT COLUMN: EDITABLE FORM DETAILS, LINE ITEMS & RAW OCR */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                            {/* EDITABLE REVIEW FORM FIELDS */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
-                              {/* MERCHANT NAME INPUT */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                  MERCHANT NAME
-                                </label>
-                                <input
-                                  type="text"
-                                  value={latestScannedResult.record.merchant}
-                                  onChange={(e) =>
-                                    setLatestScannedResult({
-                                      ...latestScannedResult,
-                                      record: { ...latestScannedResult.record, merchant: e.target.value },
-                                    })
-                                  }
-                                  style={{
-                                    backgroundColor: "var(--surface)",
-                                    border: "1px solid var(--border-visible)",
-                                    color: "var(--text-display)",
-                                    fontFamily: "var(--font-body)",
-                                    fontSize: "12px",
-                                    padding: "8px 12px",
-                                    borderRadius: "8px",
-                                    width: "100%",
-                                    outline: "none",
-                                  }}
-                                />
-                              </div>
+                          <Recreated3DReceipt
+                            receiptId={latestScannedResult.record.id}
+                            merchant={latestScannedResult.record.merchant}
+                            amount={latestScannedResult.record.amount}
+                            date={latestScannedResult.record.date}
+                            items={latestScannedResult.items}
+                            tax={latestScannedResult.tax}
+                            autoSpin={true}
+                          />
+                        </div>
 
-                              {/* AMOUNT INPUT (VIBRANT ORANGE DISPLAY) */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                  AMOUNT (MYR)
-                                </label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={latestScannedResult.record.amount}
-                                  onChange={(e) =>
-                                    setLatestScannedResult({
-                                      ...latestScannedResult,
-                                      record: { ...latestScannedResult.record, amount: parseFloat(e.target.value) || 0 },
-                                    })
-                                  }
-                                  style={{
-                                    backgroundColor: "var(--surface)",
-                                    border: "1px solid var(--border-visible)",
-                                    color: "var(--orange)",
-                                    fontFamily: "var(--font-data)",
-                                    fontSize: "12px",
-                                    fontWeight: "700",
-                                    padding: "8px 12px",
-                                    borderRadius: "8px",
-                                    width: "100%",
-                                    outline: "none",
-                                  }}
-                                />
-                              </div>
-
-                              {/* CUSTOM DROPDOWN COMPONENT FOR CATEGORY */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                <CustomDropdown
-                                  label="CATEGORY"
-                                  value={latestScannedResult.record.category}
-                                  onChange={(newCat) =>
-                                    setLatestScannedResult({
-                                      ...latestScannedResult,
-                                      record: {
-                                        ...latestScannedResult.record,
-                                        category: newCat as "business" | "tax" | "household" | "warranties" | "medical",
-                                      },
-                                    })
-                                  }
-                                  options={[
-                                    { value: "business", label: "BUSINESS" },
-                                    { value: "tax", label: "TAX DEDUCTIBLE" },
-                                    { value: "household", label: "HOUSEHOLD" },
-                                    { value: "medical", label: "MEDICAL" },
-                                    { value: "warranties", label: "WARRANTIES" },
-                                  ]}
-                                />
-                              </div>
-
-                              {/* DATE INPUT */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                  DATE
-                                </label>
-                                <input
-                                  type="date"
-                                  value={latestScannedResult.record.date}
-                                  onChange={(e) =>
-                                    setLatestScannedResult({
-                                      ...latestScannedResult,
-                                      record: { ...latestScannedResult.record, date: e.target.value },
-                                    })
-                                  }
-                                  style={{
-                                    backgroundColor: "var(--surface)",
-                                    border: "1px solid var(--border-visible)",
-                                    color: "var(--text-display)",
-                                    fontFamily: "var(--font-data)",
-                                    fontSize: "11px",
-                                    padding: "8px 12px",
-                                    borderRadius: "8px",
-                                    width: "100%",
-                                    outline: "none",
-                                  }}
-                                />
-                              </div>
-                            </div>
-
-                            {/* PRODUCT LINE ITEMS EXTRACTED TABLE */}
-                            <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                  EXTRACTED PRODUCT LINE ITEMS ({latestScannedResult.items.length}):
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newItems = [...latestScannedResult.items, { description: "NEW PRODUCT RECORD", qty: 1, price: 0.00 }];
-                                    const newSum = newItems.reduce((acc, it) => acc + (it.price * it.qty), 0);
-                                    setLatestScannedResult({
-                                      ...latestScannedResult,
-                                      items: newItems,
-                                      record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: newItems.length },
-                                    });
-                                  }}
-                                  style={{
-                                    backgroundColor: "var(--surface)",
-                                    border: "1px solid var(--border-visible)",
-                                    color: "var(--success)",
-                                    fontFamily: "var(--font-data)",
-                                    fontSize: "10px",
-                                    fontWeight: "700",
-                                    padding: "4px 8px",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  [ + ADD ITEM ]
-                                </button>
-                              </div>
-
-                              <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "8px", overflowX: "auto" }}>
-                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                  <thead>
-                                    <tr style={{ borderBottom: "1px solid var(--border-visible)" }}>
-                                      <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>#</th>
-                                      <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>ITEM DESCRIPTION</th>
-                                      <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "50px" }}>QTY</th>
-                                      <th style={{ textAlign: "right", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "90px" }}>PRICE (MYR)</th>
-                                      <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "35px" }}>DEL</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {latestScannedResult.items.map((item, idx) => (
-                                      <tr key={idx} style={{ borderBottom: idx < latestScannedResult.items.length - 1 ? "1px solid var(--border)" : "none" }}>
-                                        <td style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", padding: "6px" }}>{idx + 1}</td>
-                                        <td style={{ padding: "4px" }}>
-                                          <input
-                                            type="text"
-                                            value={item.description}
-                                            onChange={(e) => {
-                                              const updated = [...latestScannedResult.items];
-                                              updated[idx].description = e.target.value;
-                                              setLatestScannedResult({ ...latestScannedResult, items: updated });
-                                            }}
-                                            style={{
-                                              backgroundColor: "var(--black)",
-                                              border: "1px solid var(--border)",
-                                              color: "var(--text-display)",
-                                              fontFamily: "var(--font-body)",
-                                              fontSize: "11px",
-                                              padding: "4px 8px",
-                                              borderRadius: "4px",
-                                              width: "100%",
-                                              outline: "none",
-                                            }}
-                                          />
-                                        </td>
-                                        <td style={{ padding: "4px", textAlign: "center" }}>
-                                          <input
-                                            type="number"
-                                            min="1"
-                                            value={item.qty}
-                                            onChange={(e) => {
-                                              const updated = [...latestScannedResult.items];
-                                              updated[idx].qty = parseInt(e.target.value) || 1;
-                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
-                                              setLatestScannedResult({
-                                                ...latestScannedResult,
-                                                items: updated,
-                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
-                                              });
-                                            }}
-                                            style={{
-                                              backgroundColor: "var(--black)",
-                                              border: "1px solid var(--border)",
-                                              color: "var(--text-display)",
-                                              fontFamily: "var(--font-data)",
-                                              fontSize: "11px",
-                                              textAlign: "center",
-                                              padding: "4px",
-                                              borderRadius: "4px",
-                                              width: "100%",
-                                              outline: "none",
-                                            }}
-                                          />
-                                        </td>
-                                        <td style={{ padding: "4px", textAlign: "right" }}>
-                                          <input
-                                            type="number"
-                                            step="0.01"
-                                            value={item.price}
-                                            onChange={(e) => {
-                                              const updated = [...latestScannedResult.items];
-                                              updated[idx].price = parseFloat(e.target.value) || 0;
-                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
-                                              setLatestScannedResult({
-                                                ...latestScannedResult,
-                                                items: updated,
-                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
-                                              });
-                                            }}
-                                            style={{
-                                              backgroundColor: "var(--black)",
-                                              border: "1px solid var(--border)",
-                                              color: "var(--orange)",
-                                              fontFamily: "var(--font-data)",
-                                              fontSize: "11px",
-                                              fontWeight: "700",
-                                              textAlign: "right",
-                                              padding: "4px 8px",
-                                              borderRadius: "4px",
-                                              width: "100%",
-                                              outline: "none",
-                                            }}
-                                          />
-                                        </td>
-                                        <td style={{ padding: "4px", textAlign: "center" }}>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updated = latestScannedResult.items.filter((_, i) => i !== idx);
-                                              const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
-                                              setLatestScannedResult({
-                                                ...latestScannedResult,
-                                                items: updated,
-                                                record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: updated.length },
-                                              });
-                                            }}
-                                            style={{
-                                              background: "none",
-                                              border: "none",
-                                              color: "var(--error)",
-                                              cursor: "pointer",
-                                              fontFamily: "var(--font-data)",
-                                              fontSize: "12px",
-                                            }}
-                                          >
-                                            ✕
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-
-                            {/* OCR RAW STREAM TEXT DISPLAY (EDITABLE TEXT AREA) */}
-                            <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                                  EXTRACTED SCAN CONTENT / RAW OCR TEXT (EDITABLE):
-                                </span>
-                                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
-                                  [ EDIT CONTENT BELOW ]
-                                </span>
-                              </div>
-                              <textarea
-                                rows={4}
-                                value={latestScannedResult.extractedText}
+                        {/* RIGHT COLUMN: EDITABLE FORM DETAILS, LINE ITEMS & RAW OCR */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                          {/* EDITABLE REVIEW FORM FIELDS */}
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
+                            {/* MERCHANT NAME INPUT */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                MERCHANT NAME
+                              </label>
+                              <input
+                                type="text"
+                                value={latestScannedResult.record.merchant}
                                 onChange={(e) =>
                                   setLatestScannedResult({
                                     ...latestScannedResult,
-                                    extractedText: e.target.value,
+                                    record: { ...latestScannedResult.record, merchant: e.target.value },
                                   })
                                 }
                                 style={{
-                                  backgroundColor: "var(--black)",
+                                  backgroundColor: "var(--surface)",
                                   border: "1px solid var(--border-visible)",
+                                  color: "var(--text-display)",
+                                  fontFamily: "var(--font-body)",
+                                  fontSize: "12px",
+                                  padding: "8px 12px",
                                   borderRadius: "8px",
-                                  padding: "10px",
-                                  fontFamily: "var(--font-data)",
-                                  fontSize: "11px",
-                                  color: "var(--success)",
-                                  whiteSpace: "pre-wrap",
                                   width: "100%",
-                                  resize: "vertical",
-                                  lineHeight: "1.4",
                                   outline: "none",
                                 }}
                               />
                             </div>
 
-                            {/* ACTION CONFIRM / CANCEL PILL BUTTONS */}
-                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "8px" }}>
-                              <button
-                                type="button"
-                                onClick={() => setLatestScannedResult(null)}
+                            {/* AMOUNT INPUT (VIBRANT ORANGE DISPLAY) */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                AMOUNT (MYR)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={latestScannedResult.record.amount}
+                                onChange={(e) =>
+                                  setLatestScannedResult({
+                                    ...latestScannedResult,
+                                    record: { ...latestScannedResult.record, amount: parseFloat(e.target.value) || 0 },
+                                  })
+                                }
                                 style={{
-                                  backgroundColor: "transparent",
+                                  backgroundColor: "var(--surface)",
                                   border: "1px solid var(--border-visible)",
-                                  color: "var(--text-primary)",
+                                  color: "var(--orange)",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "12px",
+                                  fontWeight: "700",
+                                  padding: "8px 12px",
+                                  borderRadius: "8px",
+                                  width: "100%",
+                                  outline: "none",
+                                }}
+                              />
+                            </div>
+
+                            {/* CUSTOM DROPDOWN COMPONENT FOR CATEGORY */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <CustomDropdown
+                                label="CATEGORY"
+                                value={latestScannedResult.record.category}
+                                onChange={(newCat) =>
+                                  setLatestScannedResult({
+                                    ...latestScannedResult,
+                                    record: {
+                                      ...latestScannedResult.record,
+                                      category: newCat as "business" | "tax" | "household" | "warranties" | "medical",
+                                    },
+                                  })
+                                }
+                                options={[
+                                  { value: "business", label: "BUSINESS" },
+                                  { value: "tax", label: "TAX DEDUCTIBLE" },
+                                  { value: "household", label: "HOUSEHOLD" },
+                                  { value: "medical", label: "MEDICAL" },
+                                  { value: "warranties", label: "WARRANTIES" },
+                                ]}
+                              />
+                            </div>
+
+                            {/* DATE INPUT */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <label style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                DATE
+                              </label>
+                              <input
+                                type="date"
+                                value={latestScannedResult.record.date}
+                                onChange={(e) =>
+                                  setLatestScannedResult({
+                                    ...latestScannedResult,
+                                    record: { ...latestScannedResult.record, date: e.target.value },
+                                  })
+                                }
+                                style={{
+                                  backgroundColor: "var(--surface)",
+                                  border: "1px solid var(--border-visible)",
+                                  color: "var(--text-display)",
                                   fontFamily: "var(--font-data)",
                                   fontSize: "11px",
-                                  letterSpacing: "0.06em",
-                                  padding: "10px 20px",
-                                  borderRadius: "999px",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
+                                  padding: "8px 12px",
+                                  borderRadius: "8px",
+                                  width: "100%",
+                                  outline: "none",
                                 }}
-                              >
-                                [ DISCARD / CANCEL ]
-                              </button>
+                              />
+                            </div>
+                          </div>
+
+                          {/* PRODUCT LINE ITEMS EXTRACTED TABLE */}
+                          <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                EXTRACTED PRODUCT LINE ITEMS ({latestScannedResult.items.length}):
+                              </span>
                               <button
                                 type="button"
-                                onClick={handleConfirmSubmitReceipt}
+                                onClick={() => {
+                                  const newItems = [...latestScannedResult.items, { description: "NEW PRODUCT RECORD", qty: 1, price: 0.00 }];
+                                  const newSum = newItems.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                  setLatestScannedResult({
+                                    ...latestScannedResult,
+                                    items: newItems,
+                                    record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: newItems.length },
+                                  });
+                                }}
                                 style={{
-                                  backgroundColor: "var(--text-display)",
-                                  color: "var(--black)",
-                                  border: "none",
+                                  backgroundColor: "var(--surface)",
+                                  border: "1px solid var(--border-visible)",
+                                  color: "var(--success)",
                                   fontFamily: "var(--font-data)",
-                                  fontSize: "11px",
+                                  fontSize: "10px",
                                   fontWeight: "700",
-                                  letterSpacing: "0.06em",
-                                  padding: "10px 24px",
-                                  borderRadius: "999px",
+                                  padding: "4px 8px",
+                                  borderRadius: "4px",
                                   cursor: "pointer",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  transition: "all 0.15s ease",
                                 }}
                               >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                                <span>[ CONFIRM & SUBMIT TELEMETRY ]</span>
+                                [ + ADD ITEM ]
                               </button>
                             </div>
+
+                            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "8px", overflowX: "auto" }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                <thead>
+                                  <tr style={{ borderBottom: "1px solid var(--border-visible)" }}>
+                                    <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>#</th>
+                                    <th style={{ textAlign: "left", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px" }}>ITEM DESCRIPTION</th>
+                                    <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "50px" }}>QTY</th>
+                                    <th style={{ textAlign: "right", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "90px" }}>PRICE (MYR)</th>
+                                    <th style={{ textAlign: "center", fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", padding: "6px", width: "35px" }}>DEL</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {latestScannedResult.items.map((item, idx) => (
+                                    <tr key={idx} style={{ borderBottom: idx < latestScannedResult.items.length - 1 ? "1px solid var(--border)" : "none" }}>
+                                      <td style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", padding: "6px" }}>{idx + 1}</td>
+                                      <td style={{ padding: "4px" }}>
+                                        <input
+                                          type="text"
+                                          value={item.description}
+                                          onChange={(e) => {
+                                            const updated = [...latestScannedResult.items];
+                                            updated[idx].description = e.target.value;
+                                            setLatestScannedResult({ ...latestScannedResult, items: updated });
+                                          }}
+                                          style={{
+                                            backgroundColor: "var(--black)",
+                                            border: "1px solid var(--border)",
+                                            color: "var(--text-display)",
+                                            fontFamily: "var(--font-body)",
+                                            fontSize: "11px",
+                                            padding: "4px 8px",
+                                            borderRadius: "4px",
+                                            width: "100%",
+                                            outline: "none",
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: "4px", textAlign: "center" }}>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={item.qty}
+                                          onChange={(e) => {
+                                            const updated = [...latestScannedResult.items];
+                                            updated[idx].qty = parseInt(e.target.value) || 1;
+                                            const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                            setLatestScannedResult({
+                                              ...latestScannedResult,
+                                              items: updated,
+                                              record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
+                                            });
+                                          }}
+                                          style={{
+                                            backgroundColor: "var(--black)",
+                                            border: "1px solid var(--border)",
+                                            color: "var(--text-display)",
+                                            fontFamily: "var(--font-data)",
+                                            fontSize: "11px",
+                                            textAlign: "center",
+                                            padding: "4px",
+                                            borderRadius: "4px",
+                                            width: "100%",
+                                            outline: "none",
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: "4px", textAlign: "right" }}>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          value={item.price}
+                                          onChange={(e) => {
+                                            const updated = [...latestScannedResult.items];
+                                            updated[idx].price = parseFloat(e.target.value) || 0;
+                                            const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                            setLatestScannedResult({
+                                              ...latestScannedResult,
+                                              items: updated,
+                                              record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100 },
+                                            });
+                                          }}
+                                          style={{
+                                            backgroundColor: "var(--black)",
+                                            border: "1px solid var(--border)",
+                                            color: "var(--orange)",
+                                            fontFamily: "var(--font-data)",
+                                            fontSize: "11px",
+                                            fontWeight: "700",
+                                            textAlign: "right",
+                                            padding: "4px 8px",
+                                            borderRadius: "4px",
+                                            width: "100%",
+                                            outline: "none",
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: "4px", textAlign: "center" }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = latestScannedResult.items.filter((_, i) => i !== idx);
+                                            const newSum = updated.reduce((acc, it) => acc + (it.price * it.qty), 0);
+                                            setLatestScannedResult({
+                                              ...latestScannedResult,
+                                              items: updated,
+                                              record: { ...latestScannedResult.record, amount: Math.round(newSum * 100) / 100, itemsCount: updated.length },
+                                            });
+                                          }}
+                                          style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "var(--error)",
+                                            cursor: "pointer",
+                                            fontFamily: "var(--font-data)",
+                                            fontSize: "12px",
+                                          }}
+                                        >
+                                          ✕
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          {/* OCR RAW STREAM TEXT DISPLAY (EDITABLE TEXT AREA) */}
+                          <div style={{ borderTop: "1px dashed var(--border-visible)", paddingTop: "14px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
+                                EXTRACTED SCAN CONTENT / RAW OCR TEXT (EDITABLE):
+                              </span>
+                              <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>
+                                [ EDIT CONTENT BELOW ]
+                              </span>
+                            </div>
+                            <textarea
+                              rows={4}
+                              value={latestScannedResult.extractedText}
+                              onChange={(e) =>
+                                setLatestScannedResult({
+                                  ...latestScannedResult,
+                                  extractedText: e.target.value,
+                                })
+                              }
+                              style={{
+                                backgroundColor: "var(--black)",
+                                border: "1px solid var(--border-visible)",
+                                borderRadius: "8px",
+                                padding: "10px",
+                                fontFamily: "var(--font-data)",
+                                fontSize: "11px",
+                                color: "var(--success)",
+                                whiteSpace: "pre-wrap",
+                                width: "100%",
+                                resize: "vertical",
+                                lineHeight: "1.4",
+                                outline: "none",
+                              }}
+                            />
+                          </div>
+
+                          {/* ACTION CONFIRM / CANCEL PILL BUTTONS */}
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "8px" }}>
+                            <button
+                              type="button"
+                              onClick={() => setLatestScannedResult(null)}
+                              style={{
+                                backgroundColor: "transparent",
+                                border: "1px solid var(--border-visible)",
+                                color: "var(--text-primary)",
+                                fontFamily: "var(--font-data)",
+                                fontSize: "11px",
+                                letterSpacing: "0.06em",
+                                padding: "10px 20px",
+                                borderRadius: "999px",
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              [ DISCARD / CANCEL ]
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleConfirmSubmitReceipt}
+                              style={{
+                                backgroundColor: "var(--text-display)",
+                                color: "var(--black)",
+                                border: "none",
+                                fontFamily: "var(--font-data)",
+                                fontSize: "11px",
+                                fontWeight: "700",
+                                letterSpacing: "0.06em",
+                                padding: "10px 24px",
+                                borderRadius: "999px",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                              <span>[ CONFIRM & SUBMIT TELEMETRY ]</span>
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
-                  ) : isScanning ? (
-                    <div style={scanningProgressBoxStyle}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        {scanLogs.map((log, i) => (
-                          <span key={i} style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", letterSpacing: "0.04em" }}>
-                            {log}
-                          </span>
-                        ))}
-                      </div>
+                  </div>
+                ) : isScanning ? (
+                  <div style={scanningProgressBoxStyle}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {scanLogs.map((log, i) => (
+                        <span key={i} style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", letterSpacing: "0.04em" }}>
+                          {log}
+                        </span>
+                      ))}
                     </div>
-                  ) : (
-                    <div
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      style={{
-                        ...dropzoneBoxStyle,
-                        cursor: "default",
-                        gap: "8px",
-                        backgroundColor: isDraggingOver ? "rgba(74, 158, 92, 0.12)" : "var(--surface)",
-                        border: isDraggingOver ? "2px dashed var(--success)" : "1px dashed var(--border-visible)",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,.pdf,.heic"
-                        onChange={handleFileChange}
-                        style={{ display: "none" }}
-                      />
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    style={{
+                      ...dropzoneBoxStyle,
+                      cursor: "default",
+                      gap: "8px",
+                      backgroundColor: isDraggingOver ? "rgba(74, 158, 92, 0.12)" : "var(--surface)",
+                      border: isDraggingOver ? "2px dashed var(--success)" : "1px dashed var(--border-visible)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf,.heic"
+                      onChange={handleFileChange}
+                      style={{ display: "none" }}
+                    />
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => setIsCameraOpen(true)}
-                          style={{
-                            backgroundColor: "var(--text-display)",
-                            color: "var(--black)",
-                            border: "none",
-                            borderRadius: "8px",
-                            padding: "8px 16px",
-                            fontFamily: "var(--font-data)",
-                            fontSize: "11px",
-                            fontWeight: "700",
-                            letterSpacing: "0.06em",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                          }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                            <circle cx="12" cy="13" r="4" />
-                          </svg>
-                          <span>[ SCAN USING CAMERA ]</span>
-                        </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraOpen(true)}
+                        style={{
+                          backgroundColor: "var(--text-display)",
+                          color: "var(--black)",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "8px 16px",
+                          fontFamily: "var(--font-data)",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                        <span>[ SCAN USING CAMERA ]</span>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          style={{
-                            backgroundColor: "var(--surface-raised)",
-                            border: "1px solid var(--border-visible)",
-                            color: "var(--text-display)",
-                            borderRadius: "8px",
-                            padding: "8px 16px",
-                            fontFamily: "var(--font-data)",
-                            fontSize: "11px",
-                            fontWeight: "700",
-                            letterSpacing: "0.06em",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                          }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                          </svg>
-                          <span>[ UPLOAD / DROP FILE ]</span>
-                        </button>
-                      </div>
-
-                      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--text-secondary)", marginTop: "4px" }}>
-                        Use live device optical camera or drop receipt image/PDF file to trigger OCR telemetry scan
-                      </span>
-                      <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", letterSpacing: "0.06em" }}>
-                        SUPPORTED: JPEG, PNG, HEIC, PDF (MAX 25MB)
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          backgroundColor: "var(--surface-raised)",
+                          border: "1px solid var(--border-visible)",
+                          color: "var(--text-display)",
+                          borderRadius: "8px",
+                          padding: "8px 16px",
+                          fontFamily: "var(--font-data)",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span>[ UPLOAD / DROP FILE ]</span>
+                      </button>
                     </div>
-                  )}
+
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--text-secondary)", marginTop: "4px" }}>
+                      Use live device optical camera or drop receipt image/PDF file to trigger OCR telemetry scan
+                    </span>
+                    <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", letterSpacing: "0.06em" }}>
+                      SUPPORTED: JPEG, PNG, HEIC, PDF (MAX 25MB)
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* HERO TITLE BANNER */}
+              <div className="hero-banner-responsive dot-grid-subtle" style={heroBannerStyle}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "100%", minWidth: 0 }}>
+                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", letterSpacing: "0.1em" }}>
+                    SYS // ARCHIVAL TELEMETRY CONSOLE v0.2
+                  </span>
+                  <h1 style={{ fontFamily: "var(--font-body)", fontSize: "var(--display-md)", fontWeight: "700", color: "var(--text-display)", margin: 0, letterSpacing: "-0.02em", wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                    <MatrixText text="OPERATOR TELEMETRY DASHBOARD" />
+                  </h1>
+                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", marginTop: "2px" }}>
+                    &gt; REAL-TIME SCANNER FEED &amp; ENCRYPTED LOCAL ARCHIVE
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span className="dot-pulse" style={{ backgroundColor: "var(--success)" }} />
+                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", letterSpacing: "0.08em" }}>
+                    [ ONLINE // TLS 1.3 ENCRYPTED ]
+                  </span>
                 </div>
               </div>
 
@@ -1439,7 +1436,7 @@ export default function DashboardPage() {
               <div className="main-layout-grid" style={mainLayoutGridStyle}>
                 {/* LEFT COLUMN: RECEIPT ARCHIVE TABLE */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)", flex: 1, minWidth: 0, width: "100%" }}>
-
+                  
                   {/* RECEIPT ARCHIVE TABLE PANEL */}
                   <div className="dot-grid-subtle" style={panelCardStyle}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1558,7 +1555,7 @@ export default function DashboardPage() {
 
                 {/* RIGHT COLUMN: CATEGORY BREAKDOWN TELEMETRY */}
                 <div className="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)", width: "100%", maxWidth: "340px", flexShrink: 0 }}>
-
+                  
                   {/* CATEGORY BREAKDOWN TELEMETRY */}
                   <div className="dot-grid-subtle" style={panelCardStyle}>
                     <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.08em", color: "var(--text-display)" }}>
