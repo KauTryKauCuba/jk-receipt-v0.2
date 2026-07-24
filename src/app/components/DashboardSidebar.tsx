@@ -25,7 +25,12 @@ export default function DashboardSidebar({
     }
     return false;
   });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth <= 768;
+    }
+    return true;
+  });
 
   const toggleTheme = () => {
     const newMode = !isLightMode;
