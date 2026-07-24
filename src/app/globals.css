@@ -1024,4 +1024,36 @@ input[type="number"] {
   .camera-modal-backdrop {
     padding: 12px;
   }
+
+  .review-telemetry-card {
+    padding: 14px !important;
+    gap: 14px !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .review-split-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .review-receipt-col {
+    position: static !important;
+    top: auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 10px !important;
+  }
+
+  .review-card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .silver-card-face {
+    padding: 12px 10px !important;
+    border-radius: 10px !important;
+  }
 }

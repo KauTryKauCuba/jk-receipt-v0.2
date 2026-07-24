@@ -77,9 +77,12 @@ export default function Recreated3DReceipt({
         style={{
           perspective: "1000px",
           width: "100%",
+          maxWidth: "100%",
           display: "flex",
           justifyContent: "center",
-          padding: "20px 0",
+          padding: "10px 0",
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         <div
@@ -101,6 +104,7 @@ export default function Recreated3DReceipt({
               : "0 12px 28px rgba(0, 0, 0, 0.6)",
             cursor: "grab",
             borderRadius: "14px",
+            boxSizing: "border-box",
           }}
         >
           {/* RECREATED RECEIPT SLIP WITH BRUSHED SILVER METALLIC BACKGROUND */}
@@ -109,8 +113,9 @@ export default function Recreated3DReceipt({
             style={{
               position: "relative",
               width: "100%",
-              minHeight: "340px",
-              padding: "18px 16px",
+              maxWidth: "100%",
+              minHeight: "320px",
+              padding: "16px 12px",
               borderRadius: "14px",
               display: "flex",
               flexDirection: "column",

@@ -850,7 +850,7 @@ export default function DashboardPage() {
                   <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
                     {/* FULL PAGE TELEMETRY REVIEW CARD */}
                     <div
-                      className="dot-grid-subtle"
+                      className="dot-grid-subtle review-telemetry-card"
                       style={{
                         backgroundColor: "var(--surface-raised)",
                         border: "1px solid var(--orange)",
@@ -860,14 +860,16 @@ export default function DashboardPage() {
                         flexDirection: "column",
                         gap: "20px",
                         width: "100%",
+                        maxWidth: "100%",
                         boxShadow: "0 16px 48px rgba(0,0,0,0.95)",
+                        boxSizing: "border-box",
                       }}
                     >
                       {/* CARD HEADER */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "14px" }}>
+                      <div className="review-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--orange)" }} />
-                          <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em" }}>
+                          <span style={{ fontFamily: "var(--font-data)", fontSize: "12px", fontWeight: "700", color: "var(--orange)", letterSpacing: "0.08em", wordBreak: "break-word" }}>
                             [ REVIEW EXTRACTED TELEMETRY // {latestScannedResult.record.id} ]
                           </span>
                         </div>
@@ -877,9 +879,9 @@ export default function DashboardPage() {
                       </div>
 
                       {/* SIDE-BY-SIDE SPLIT GRID: 3D RECEIPT ON LEFT, DETAILS ON RIGHT */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", alignItems: "start" }}>
+                      <div className="review-split-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", alignItems: "start", width: "100%", maxWidth: "100%" }}>
                         {/* LEFT COLUMN: 3D RECREATED PAPER RECEIPT */}
-                        <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px" }}>
+                        <div className="review-receipt-col" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
                               3D RECREATED PAPER RECEIPT // INTERACTIVE PERSPECTIVE
