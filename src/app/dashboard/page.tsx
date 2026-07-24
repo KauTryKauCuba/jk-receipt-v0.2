@@ -180,13 +180,13 @@ export default function DashboardPage() {
 
       const extractedItems = Array.isArray(ocr.items) && ocr.items.length > 0
         ? ocr.items.map((it: { description?: string; qty?: number; price?: number }) => ({
-            description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
-            qty: Number(it.qty) || 1,
-            price: Number(it.price) || 0,
-          }))
+          description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
+          qty: Number(it.qty) || 1,
+          price: Number(it.price) || 0,
+        }))
         : [
-            { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
-          ];
+          { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
+        ];
 
       const cleanMerchant = (ocr.merchant || "MERCHANT STORE")
         .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
@@ -308,7 +308,7 @@ export default function DashboardPage() {
 
       {/* MAIN DASHBOARD CONTENT AREA */}
       <main className="dashboard-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflowY: "auto" }}>
-        
+
         {/* REUSABLE NAVBAR COMPONENT */}
         <DashboardNavbar
           searchQuery={searchQuery}
@@ -320,7 +320,7 @@ export default function DashboardPage() {
 
         {/* DASHBOARD BODY CONTENT */}
         <div className="dashboard-body-padding animate-slide-left" key={activeNav} style={{ padding: "var(--space-md)", display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-          
+
           {activeNav === "documents" ? (
             /* DOCUMENTS VIEW IN-PLACE */
             <>
@@ -577,10 +577,10 @@ export default function DashboardPage() {
               {/* MONTHS CONTENT: CALENDAR GRID OR PERIOD CARDS */}
               {monthsViewMode === "CALENDAR" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-                  
+
                   {/* CALENDAR INSTRUMENT CONTAINER */}
                   <div className="dot-grid-subtle calendar-instrument-card" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "12px", padding: "20px" }}>
-                    
+
                     {/* CALENDAR HEADER CONTROLS */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -811,7 +811,7 @@ export default function DashboardPage() {
                       SYS // ARCHIVAL TELEMETRY CONSOLE v0.2
                     </span>
                     <h1 style={{ fontFamily: "var(--font-body)", fontSize: "var(--display-md)", fontWeight: "700", color: "var(--text-display)", margin: 0, letterSpacing: "-0.02em", wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                      OPERATOR TELEMETRY DASHBOARD
+                      <MatrixText text="OPERATOR TELEMETRY DASHBOARD" />
                     </h1>
                     <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", marginTop: "2px" }}>
                       &gt; REAL-TIME SCANNER FEED &amp; ENCRYPTED LOCAL ARCHIVE
@@ -1439,7 +1439,7 @@ export default function DashboardPage() {
               <div className="main-layout-grid" style={mainLayoutGridStyle}>
                 {/* LEFT COLUMN: RECEIPT ARCHIVE TABLE */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)", flex: 1, minWidth: 0, width: "100%" }}>
-                  
+
                   {/* RECEIPT ARCHIVE TABLE PANEL */}
                   <div className="dot-grid-subtle" style={panelCardStyle}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1558,7 +1558,7 @@ export default function DashboardPage() {
 
                 {/* RIGHT COLUMN: CATEGORY BREAKDOWN TELEMETRY */}
                 <div className="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)", width: "100%", maxWidth: "340px", flexShrink: 0 }}>
-                  
+
                   {/* CATEGORY BREAKDOWN TELEMETRY */}
                   <div className="dot-grid-subtle" style={panelCardStyle}>
                     <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.08em", color: "var(--text-display)" }}>

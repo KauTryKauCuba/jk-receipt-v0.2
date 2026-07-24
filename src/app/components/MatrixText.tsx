@@ -44,14 +44,15 @@ export default function MatrixText({
 
   const animationRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
-  const animateRef = useRef<(timestamp: number) => void>(() => {});
+  const animateRef = useRef<(timestamp: number) => void>(() => { });
+
+  const isAnimatingRef = useRef(false);
 
   const animate = useCallback(
     (timestamp: number) => {
       if (!startRef.current) startRef.current = timestamp;
       const elapsed = timestamp - startRef.current;
       const progress = Math.min(elapsed / duration, 1);
-
       const perCharDuration = duration / text.length;
 
       const nextChars: CharState[] = text.split("").map((finalChar, i) => {
@@ -89,8 +90,10 @@ export default function MatrixText({
       setChars(nextChars);
 
       if (progress < 1) {
+        isAnimatingRef.current = true;
         animationRef.current = requestAnimationFrame((ts) => animateRef.current(ts));
       } else {
+        isAnimatingRef.current = false;
         setChars(
           text.split("").map((finalChar) => ({
             resolved: true,
@@ -112,9 +115,11 @@ export default function MatrixText({
 
   const triggerAnimation = useCallback(
     (immediate = false) => {
+      if (isAnimatingRef.current && !immediate) return;
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      isAnimatingRef.current = true;
       startRef.current = null;
       setChars(
         text.split("").map(() => ({
@@ -127,9 +132,7 @@ export default function MatrixText({
         }))
       );
 
-      if (immediate) {
-        animationRef.current = requestAnimationFrame((ts) => animateRef.current(ts));
-      }
+      animationRef.current = requestAnimationFrame((ts) => animateRef.current(ts));
     },
     [text]
   );
@@ -137,6 +140,7 @@ export default function MatrixText({
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       startRef.current = null;
+      isAnimatingRef.current = true;
       animationRef.current = requestAnimationFrame((ts) => animateRef.current(ts));
     }, delay);
 
@@ -145,13 +149,25 @@ export default function MatrixText({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      isAnimatingRef.current = false;
     };
   }, [text, delay]);
 
   return (
     <span
       className={className}
-      style={{ ...style, display: "inline-block", cursor: "default" }}
+      style={{
+        ...style,
+        display: "inline-flex",
+        flexWrap: "wrap",
+        cursor: "default",
+        fontFamily: "var(--font-data), 'Space Mono', monospace",
+      }}
+      onMouseEnter={() => {
+        if (!isAnimatingRef.current) {
+          triggerAnimation(true);
+        }
+      }}
     >
       {chars.map((charState, index) => (
         <span
@@ -159,8 +175,8 @@ export default function MatrixText({
           style={{
             display: "inline-block",
             position: "relative",
-            width: "auto",
-            minWidth: charState.char === " " ? "0.3em" : "auto",
+            width: charState.char === " " ? "0.45em" : "1ch",
+            textAlign: "center",
             whiteSpace: "pre",
           }}
         >
@@ -170,6 +186,8 @@ export default function MatrixText({
               style={{
                 position: "absolute",
                 bottom: "100%",
+                left: 0,
+                right: 0,
                 display: "flex",
                 flexDirection: "column-reverse",
                 alignItems: "center",
@@ -211,6 +229,8 @@ export default function MatrixText({
               style={{
                 position: "absolute",
                 top: "100%",
+                left: 0,
+                right: 0,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
