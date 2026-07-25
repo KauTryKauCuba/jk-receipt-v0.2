@@ -154,7 +154,7 @@ export default function DashboardPage() {
 
     setScanLogs([
       `[FILE] RECEIVED: ${fileName}`,
-      "[GROQ AI] CONNECTING TO GROQ VISION API (QWEN/QWEN3.6-27B)...",
+      "[AI VISION] CONNECTING TO OPTICAL VISION ENGINE (OLLAMA LLAVA / GROQ QWEN)...",
     ]);
 
     try {
@@ -162,7 +162,7 @@ export default function DashboardPage() {
         throw new Error("No image data provided for OCR analysis.");
       }
 
-      setScanLogs((prev) => [...prev, "[GROQ AI] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
+      setScanLogs((prev) => [...prev, "[AI VISION] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
 
       // 10x Token Optimizer: Downscale to max 480px with grayscale enhancement for ~200 tokens/scan (1,000 scans/day limit)
       const compressedImage = await new Promise<string>((resolve) => {
@@ -196,7 +196,7 @@ export default function DashboardPage() {
         img.src = base64DataUrl;
       });
 
-      setScanLogs((prev) => [...prev, "[GROQ AI] EXTRACTING MERCHANT, TOTALS & ITEMIZATIONS..."]);
+      setScanLogs((prev) => [...prev, "[AI VISION] EXTRACTING MERCHANT, TOTALS & ITEMIZATIONS..."]);
 
       const response = await fetch("/api/ocr", {
         method: "POST",
@@ -211,6 +211,7 @@ export default function DashboardPage() {
 
       const resData = await response.json();
       const ocr = resData.data;
+      const engineLabel = ocr.engine || "AI VISION";
 
       const extractedItems = Array.isArray(ocr.items) && ocr.items.length > 0
         ? ocr.items.map((it: { description?: string; qty?: number; price?: number }) => ({
@@ -238,13 +239,15 @@ export default function DashboardPage() {
         itemsCount: extractedItems.length,
       };
 
-      setScanLogs((prev) => [...prev, `[GROQ AI] SUCCESS: ${draftRec.merchant} - ${draftRec.amount.toFixed(2)} MYR (${extractedItems.length} ITEMS)`]);
+      setScanLogs((prev) => [...prev, `[${engineLabel.toUpperCase()}] SUCCESS: ${draftRec.merchant} - ${draftRec.amount.toFixed(2)} MYR (${extractedItems.length} ITEMS)`]);
 
       setLatestScannedResult({
         record: draftRec,
         fileName: fileName,
         previewUrl: previewUrl,
-        extractedText: ocr.rawTextStream || `--- GROQ AI OCR TELEMETRY ---\nMERCHANT: ${draftRec.merchant}\nDATE: ${draftRec.date}\nTOTAL: ${draftRec.amount.toFixed(2)} MYR\nTAX: ${ocr.tax || 0} MYR\nITEMS EXTRACTED:\n` + extractedItems.map((it: { description: string; qty: number; price: number }) => `• ${it.description} x${it.qty} = ${it.price.toFixed(2)} MYR`).join("\n"),
+        extractedText: typeof ocr.rawTextStream === "string" && ocr.rawTextStream.length > 0
+          ? ocr.rawTextStream
+          : `--- [${engineLabel}] RAW OCR TELEMETRY ---\nMERCHANT: ${draftRec.merchant}\nDATE: ${draftRec.date}\nTOTAL: ${draftRec.amount.toFixed(2)} MYR\nTAX: ${ocr.tax || 0} MYR\nITEMS EXTRACTED:\n` + extractedItems.map((it: { description: string; qty: number; price: number }) => `• ${it.description} x${it.qty} = ${it.price.toFixed(2)} MYR`).join("\n"),
         items: extractedItems,
         tax: Number(ocr.tax) || 0,
       });

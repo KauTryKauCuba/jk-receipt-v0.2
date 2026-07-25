@@ -291,6 +291,13 @@ Return JSON string only.`;
       parsedResult.engine = usedEngine;
     }
 
+    // Ensure rawTextStream preserves the real raw AI model output
+    const rawContent = typeof parsedResult.rawTextStream === "string" && parsedResult.rawTextStream.trim() !== "Text"
+      ? parsedResult.rawTextStream
+      : contentString;
+
+    parsedResult.rawTextStream = `--- [AI ENGINE: ${usedEngine || "VISION OCR"}] RAW EXTRACTED STREAM ---\n${rawContent}`;
+
     return NextResponse.json({ success: true, data: parsedResult });
   } catch (err: unknown) {
     console.error("OCR API Endpoint Exception:", err);
