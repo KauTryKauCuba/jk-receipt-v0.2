@@ -434,7 +434,8 @@ export default function CameraScannerModal({
                 outline: "none",
               }}
             >
-              <option value="ollama">💻 Local Ollama AI (Llama 3.2 Vision)</option>
+              <option value="ollama">💎 Garnet-OCR-3B-0422-GGUF:Q4_K_M (Local VPS AI) [DEFAULT]</option>
+              <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
             </select>
           </div>
 
