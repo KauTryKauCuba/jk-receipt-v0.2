@@ -166,13 +166,13 @@ export default function DashboardPage() {
 
       setScanLogs((prev) => [...prev, "[AI VISION] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
 
-      // Optimized Image Preprocessing: Max 720px buffer for fast local vision AI recognition (~10s inference)
+      // Optimized High-Resolution Image Preprocessing: Max 1800px buffer for ultra-sharp OCR recognition
       const compressedImage = await new Promise<string>((resolve) => {
         const img = new Image();
         img.onload = () => {
           let w = img.width;
           let h = img.height;
-          const maxDim = 720;
+          const maxDim = 1800;
           if (w > maxDim || h > maxDim) {
             if (w > h) {
               h = Math.round((h * maxDim) / w);
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL("image/jpeg", 0.80));
+            resolve(canvas.toDataURL("image/jpeg", 0.95));
           } else {
             resolve(base64DataUrl);
           }

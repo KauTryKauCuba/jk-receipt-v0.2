@@ -11,15 +11,15 @@ function extractReceiptHeuristics(rawText: string) {
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  // 1. Merchant Extraction (Top lines excluding dates/numbers/metadata)
+  // 1. Merchant Extraction (Search top 8 lines excluding dates/numbers/metadata)
   let merchant = "";
-  for (const line of lines.slice(0, 6)) {
+  for (const line of lines.slice(0, 8)) {
     const cleanLine = line.replace(/[^a-zA-Z0-9\s\&\.\-]/g, "").trim();
     if (
       cleanLine.length >= 3 &&
-      !/^(receipt|tax|invoice|welcome|date|tel|fax|cashier|copy|table|order|no|str|gst|sst|reg|chk|sys|note|engine)\b/i.test(cleanLine) &&
+      !/^(receipt|tax|invoice|tax\s*invoice|welcome|date|tel|fax|cashier|copy|table|order|no|str|gst|sst|reg|chk|sys|note|engine|address|jalan|street|lot|level|floor|tel:)\b/i.test(cleanLine) &&
       !/^\d+$/.test(cleanLine) &&
-      !/^\d{2}[-/]\d{2}[-/]\d{4}/.test(cleanLine)
+      !/^\d{2}[-/.]\d{2}[-/.]\d{4}/.test(cleanLine)
     ) {
       merchant = cleanLine.toUpperCase();
       break;
@@ -28,15 +28,15 @@ function extractReceiptHeuristics(rawText: string) {
 
   // 2. Total Extraction
   let total = 0;
-  const totalRegex = /(?:grand\s*total|total\s*due|amount\s*due|net\s*total|total\s*paid|jumlah\s*bersih|jumlah|total)\s*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i;
+  const totalRegex = /(?:grand\s*total|total\s*due|amount\s*due|net\s*total|total\s*paid|jumlah\s*bersih|jumlah|total\s*rm|total\s*myr|total)\s*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i;
   const totalMatch = rawText.match(totalRegex);
   if (totalMatch) {
     total = parseFloat(totalMatch[1]);
   } else {
-    // Search for largest currency figure near bottom of receipt
+    // Search for currency numbers near bottom of receipt excluding subtotal lines
     const numbers = [...rawText.matchAll(/(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/gi)];
     if (numbers.length > 0) {
-      const parsedNums = numbers.map((m) => parseFloat(m[1])).filter((n) => !isNaN(n) && n < 10000);
+      const parsedNums = numbers.map((m) => parseFloat(m[1])).filter((n) => !isNaN(n) && n < 100000);
       if (parsedNums.length > 0) {
         total = Math.max(...parsedNums);
       }
@@ -51,34 +51,58 @@ function extractReceiptHeuristics(rawText: string) {
   }
 
   let tax = 0;
-  const taxMatch = rawText.match(/(?:sst|gst|tax|vat|cukai)\s*(?:\(?[0-9]%?\)?|\s)*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i);
+  const taxMatch = rawText.match(/(?:sst|gst|tax|vat|cukai|service\s*tax|svc\s*chg)\s*(?:\(?[0-9]%?\)?|\s)*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i);
   if (taxMatch) {
     tax = parseFloat(taxMatch[1]);
   }
 
-  // 4. Date Extraction
+  // 4. Date Extraction (Supports DD/MM/YYYY, YYYY-MM-DD, DD-MMM-YYYY, etc.)
   let date = "";
-  const dateRegex = /\b([0-9]{2}[-/.]\d{2}[-/.]\d{4}|\d{4}[-/.]\d{2}[-/.]\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b/i;
+  const dateRegex = /\b([0-9]{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})\b/i;
   const dateMatch = rawText.match(dateRegex);
   if (dateMatch) {
-    const rawDateStr = dateMatch[1].replace(/\./g, "-").replace(/\//g, "-");
-    if (/^\d{2}-\d{2}-\d{4}$/.test(rawDateStr)) {
-      const parts = rawDateStr.split("-");
-      date = `${parts[2]}-${parts[1]}-${parts[0]}`;
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawDateStr)) {
-      date = rawDateStr;
+    const rawStr = dateMatch[1].trim();
+
+    // Check textual month: 24 Jul 2026 or 24-Jul-2026
+    const monthNames: Record<string, string> = {
+      jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+      jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+    };
+
+    const textMonthMatch = rawStr.match(/^(\d{1,2})\s+([a-zA-Z]{3})[a-zA-Z]*\s+(\d{4})$/i);
+    if (textMonthMatch) {
+      const day = textMonthMatch[1].padStart(2, "0");
+      const mStr = textMonthMatch[2].toLowerCase();
+      const year = textMonthMatch[3];
+      if (monthNames[mStr]) {
+        date = `${year}-${monthNames[mStr]}-${day}`;
+      }
+    }
+
+    if (!date) {
+      const cleanDateStr = rawStr.replace(/\./g, "-").replace(/\//g, "-");
+      const parts = cleanDateStr.split("-");
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          date = `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+        } else if (parts[2].length === 4) {
+          // DD-MM-YYYY
+          date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
     }
   }
 
   // 5. Line Items Extraction
   const items: Array<{ description: string; qty: number; price: number }> = [];
-  const lineItemRegex = /([a-zA-Z0-9\s\-\.]{3,30})\s+(?:x?\s*([1-9]\d?)\s+)?(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})/gi;
+  const lineItemRegex = /([a-zA-Z0-9\s\-\.\&]{3,35})\s+(?:x?\s*([1-9]\d?)\s+)?(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})/gi;
   let match;
   while ((match = lineItemRegex.exec(rawText)) !== null) {
     const itemDesc = match[1].replace(/[\*\=\-\_]+/g, "").trim();
     if (
       itemDesc.length >= 3 &&
-      !/^(subtotal|total|tax|sst|gst|cash|change|visa|mastercard|rounding|balance|amount|cashier|change\s*due)\b/i.test(itemDesc)
+      !/^(subtotal|total|tax|sst|gst|cash|change|visa|mastercard|rounding|balance|amount|cashier|change\s*due|net|card|payment)\b/i.test(itemDesc)
     ) {
       items.push({
         description: itemDesc.toUpperCase(),
@@ -319,7 +343,7 @@ async function runGemini(
             },
           ],
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0.0,
             responseMimeType: "application/json",
           },
         }),
@@ -379,7 +403,7 @@ async function runGroq(
               ],
             },
           ],
-          temperature: 0.1,
+          temperature: 0.0,
           response_format: { type: "json_object" },
         }),
         signal: AbortSignal.timeout(20000),
@@ -420,7 +444,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
 
   for (const host of hostCandidates) {
     try {
-      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(4000) });
       if (tagsRes.ok) {
         const tagsData = await tagsRes.json();
         const availableModels: Array<{ name: string }> = tagsData.models || [];
@@ -431,7 +455,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
           return { model: exactMatch, workingHost: host };
         }
 
-        const visionKeywords = ["garnet-ocr", "garnet", "llama3.2-vision", "qwen2-vl", "minicpm-v", "bakllava", "llava", "vision"];
+        const visionKeywords = ["garnet", "gguf", "llama3.2-vision", "qwen2-vl", "minicpm-v", "bakllava", "llava", "vision"];
         for (const keyword of visionKeywords) {
           const match = modelNames.find((n) => n.toLowerCase().includes(keyword));
           if (match) {
@@ -453,7 +477,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
   return { model: requestedModel, workingHost: ollamaHost };
 }
 
-// Local Ollama AI Runner
+// Local Ollama AI Runner (Optimized for Garnet OCR 3B GGUF)
 async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {
   const defaultHost = process.env.OLLAMA_HOST || "http://172.17.0.1:11434";
   const preferredModel = process.env.LOCAL_VISION_MODEL || "Garnet-OCR-3B-0422-GGUF:Q4_K_M";
@@ -466,7 +490,23 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
     try {
       console.log(`Attempting Local Ollama AI Vision (${localModel}) at ${host}...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout for 3B vision inference
+
+      // High-precision OCR Prompt for Garnet OCR 3B
+      const ocrPrompt = `Perform OCR on this receipt image line by line from top to bottom.
+Extract all text precisely. Output JSON matching this schema:
+{
+  "merchant": "MERCHANT STORE NAME",
+  "date": "YYYY-MM-DD",
+  "category": "business",
+  "subtotal": 0.00,
+  "tax": 0.00,
+  "total": 0.00,
+  "items": [
+    {"description": "ITEM DESCRIPTION", "qty": 1, "price": 0.00}
+  ],
+  "rawTextStream": "Exact full text read from receipt line by line"
+}`;
 
       let ollamaRes = await fetch(`${host}/api/chat`, {
         method: "POST",
@@ -476,22 +516,23 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
           messages: [
             {
               role: "user",
-              content: prompt,
+              content: ocrPrompt,
               images: [base64DataOnly],
             },
           ],
           stream: false,
           format: "json",
           options: {
-            temperature: 0.1,
-            num_predict: 300,
-            num_ctx: 2048,
+            temperature: 0.0,
+            num_predict: 1024,
+            num_ctx: 4096,
           },
         }),
         signal: controller.signal,
       });
 
       if (!ollamaRes.ok) {
+        // Fallback without format: "json" if model doesn't support json format flag natively
         ollamaRes = await fetch(`${host}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -500,15 +541,15 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
             messages: [
               {
                 role: "user",
-                content: prompt,
+                content: ocrPrompt,
                 images: [base64DataOnly],
               },
             ],
             stream: false,
             options: {
-              temperature: 0.1,
-              num_predict: 300,
-              num_ctx: 2048,
+              temperature: 0.0,
+              num_predict: 1024,
+              num_ctx: 4096,
             },
           }),
           signal: controller.signal,
@@ -516,18 +557,19 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
       }
 
       if (!ollamaRes.ok) {
+        // Fallback to /api/generate endpoint
         ollamaRes = await fetch(`${host}/api/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: localModel,
-            prompt: prompt,
+            prompt: ocrPrompt,
             images: [base64DataOnly],
             stream: false,
             options: {
-              temperature: 0.1,
-              num_predict: 300,
-              num_ctx: 2048,
+              temperature: 0.0,
+              num_predict: 1024,
+              num_ctx: 4096,
             },
           }),
           signal: controller.signal,
@@ -540,7 +582,7 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
         const ollamaData = await ollamaRes.json();
         const extractedContent = ollamaData.message?.content || ollamaData.response;
         if (extractedContent) {
-          return { content: extractedContent, engine: `Local Ollama Vision (${localModel})` };
+          return { content: extractedContent, engine: `Local Ollama (${localModel})` };
         }
       }
       const errTxt = await ollamaRes.text();
@@ -551,7 +593,7 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
     }
   }
 
-  return { content: "", engine: `Local Ollama Vision (${localModel})`, error: lastErrStr || "Ollama host connection failed" };
+  return { content: "", engine: `Local Ollama (${localModel})`, error: lastErrStr || "Ollama host connection failed" };
 }
 
 export async function POST(req: NextRequest) {
