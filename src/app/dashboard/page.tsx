@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [reviewViewMode, setReviewViewMode] = useState<"PHOTO" | "3D">("PHOTO");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -911,26 +912,90 @@ export default function DashboardPage() {
 
                       {/* SIDE-BY-SIDE SPLIT GRID: 3D RECEIPT ON LEFT, DETAILS ON RIGHT */}
                       <div className="review-split-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", alignItems: "start", width: "100%", maxWidth: "100%" }}>
-                        {/* LEFT COLUMN: 3D RECREATED PAPER RECEIPT */}
-                        <div className="review-receipt-col" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "20px", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", letterSpacing: "0.08em" }}>
-                              3D RECREATED PAPER RECEIPT // INTERACTIVE PERSPECTIVE
-                            </span>
+                        {/* LEFT COLUMN: LIVE CAPTURED PHOTO / 3D RECEIPT TOGGLE */}
+                        <div className="review-receipt-col" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", position: "sticky", top: "20px", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button
+                                type="button"
+                                onClick={() => setReviewViewMode("PHOTO")}
+                                style={{
+                                  backgroundColor: reviewViewMode === "PHOTO" ? "var(--orange)" : "var(--surface-raised)",
+                                  color: reviewViewMode === "PHOTO" ? "var(--black)" : "var(--text-secondary)",
+                                  border: "1px solid var(--border-visible)",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "9px",
+                                  fontWeight: "700",
+                                  padding: "4px 8px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                [ 📷 CAMERA SNAPSHOT ]
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReviewViewMode("3D")}
+                                style={{
+                                  backgroundColor: reviewViewMode === "3D" ? "var(--text-display)" : "var(--surface-raised)",
+                                  color: reviewViewMode === "3D" ? "var(--black)" : "var(--text-secondary)",
+                                  border: "1px solid var(--border-visible)",
+                                  fontFamily: "var(--font-data)",
+                                  fontSize: "9px",
+                                  fontWeight: "700",
+                                  padding: "4px 8px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                [ 💳 3D SILVER RECEIPT ]
+                              </button>
+                            </div>
                             <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--success)" }}>
-                              [ HOVER TO TILT 3D RECEIPT ]
+                              {reviewViewMode === "PHOTO" ? "[ OPTICAL CAMERA FEED ]" : "[ HOVER TO TILT ]"}
                             </span>
                           </div>
 
-                          <Recreated3DReceipt
-                            receiptId={latestScannedResult.record.id}
-                            merchant={latestScannedResult.record.merchant}
-                            amount={latestScannedResult.record.amount}
-                            date={latestScannedResult.record.date}
-                            items={latestScannedResult.items}
-                            tax={latestScannedResult.tax}
-                            autoSpin={true}
-                          />
+                          {reviewViewMode === "PHOTO" && latestScannedResult.previewUrl ? (
+                            <div style={{ position: "relative", width: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-visible)", backgroundColor: "#000" }}>
+                              {/* ACTUAL CAMERA SNAPSHOT PHOTO */}
+                              <img
+                                src={latestScannedResult.previewUrl}
+                                alt="Live Camera Receipt Capture"
+                                style={{
+                                  width: "100%",
+                                  maxHeight: "480px",
+                                  objectFit: "contain",
+                                  display: "block",
+                                  margin: "0 auto",
+                                }}
+                              />
+                              {/* OPTICAL BOUNDING FRAME OVERLAY */}
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  inset: "12px",
+                                  border: "1px dashed rgba(74, 158, 92, 0.6)",
+                                  borderRadius: "6px",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                <span style={{ position: "absolute", top: "6px", left: "6px", fontFamily: "var(--font-data)", fontSize: "8px", color: "var(--success)", backgroundColor: "rgba(0,0,0,0.75)", padding: "2px 4px", borderRadius: "3px" }}>
+                                  [ CAMERA CAPTURE OK // OCR MATCHED ]
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <Recreated3DReceipt
+                              receiptId={latestScannedResult.record.id}
+                              merchant={latestScannedResult.record.merchant}
+                              amount={latestScannedResult.record.amount}
+                              date={latestScannedResult.record.date}
+                              items={latestScannedResult.items}
+                              tax={latestScannedResult.tax}
+                              autoSpin={true}
+                            />
+                          )}
                         </div>
 
                         {/* RIGHT COLUMN: EDITABLE FORM DETAILS, LINE ITEMS & RAW OCR */}
