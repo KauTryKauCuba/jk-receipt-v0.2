@@ -208,82 +208,69 @@ export default function DashboardPage() {
       }
 
       const resData = await response.json();
-      const ocr = resData.data;
+      const ocr = resData.data || {};
+
+      // Helper function to safely parse numeric amounts from string or number (e.g. "RM 87.50" -> 87.50)
+      const parseAmount = (val: unknown, defaultVal = 0): number => {
+        if (typeof val === "number") return isNaN(val) ? defaultVal : val;
+        if (typeof val === "string") {
+          const cleaned = val.replace(/[^0-9.]/g, "");
+          const num = parseFloat(cleaned);
+          return isNaN(num) ? defaultVal : num;
+        }
+        return defaultVal;
+      };
+
+      const extractedMerchant = (ocr.merchant || "RECEIPT MERCHANT")
+        .toString()
+        .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
+        .toUpperCase()
+        .trim();
+
+      const extractedTotal = parseAmount(ocr.total, 0);
+      const extractedTax = parseAmount(ocr.tax, 0);
 
       const extractedItems = Array.isArray(ocr.items) && ocr.items.length > 0
-        ? ocr.items.map((it: { description?: string; qty?: number; price?: number }) => ({
-            description: (it.description || "ITEM RECORD").replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
-            qty: Number(it.qty) || 1,
-            price: Number(it.price) || 0,
+        ? ocr.items.map((it: { description?: string; qty?: unknown; price?: unknown }) => ({
+            description: (it.description || "LINE ITEM").toString().replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim().toUpperCase(),
+            qty: Math.max(1, Math.round(parseAmount(it.qty, 1))),
+            price: parseAmount(it.price, 0),
           }))
         : [
-            { description: "POS ITEM PURCHASE", qty: 1, price: Number(ocr.total) || 120.00 }
+            { description: `${extractedMerchant} ITEM`, qty: 1, price: extractedTotal }
           ];
-
-      const cleanMerchant = (ocr.merchant || "MERCHANT STORE")
-        .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
-        .trim();
 
       const draftRec: ReceiptRecord = {
         id: `JK-R-${Math.floor(8850 + Math.random() * 100)}`,
-        merchant: cleanMerchant,
+        merchant: extractedMerchant,
         category: (["business", "tax", "household", "warranties", "medical"].includes(ocr.category)
           ? ocr.category
           : "business") as "business" | "tax" | "household" | "warranties" | "medical",
-        date: ocr.date || new Date().toISOString().split("T")[0],
-        amount: Number(ocr.total) || 0,
+        date: typeof ocr.date === "string" && ocr.date.length >= 8 ? ocr.date : new Date().toISOString().split("T")[0],
+        amount: extractedTotal,
         status: "PENDING",
         itemsCount: extractedItems.length,
       };
 
-      setScanLogs((prev) => [...prev, `[GROQ AI] SUCCESS: ${draftRec.merchant} - ${draftRec.amount.toFixed(2)} MYR (${extractedItems.length} ITEMS)`]);
+      setScanLogs((prev) => [...prev, `[GROQ AI] PARSED SUCCESS: ${draftRec.merchant} - ${draftRec.amount.toFixed(2)} MYR (${extractedItems.length} ITEMS)`]);
 
       setLatestScannedResult({
         record: draftRec,
         fileName: fileName,
         previewUrl: previewUrl,
-        extractedText: ocr.rawTextStream || `--- GROQ AI OCR TELEMETRY ---\nMERCHANT: ${draftRec.merchant}\nDATE: ${draftRec.date}\nTOTAL: ${draftRec.amount.toFixed(2)} MYR\nTAX: ${ocr.tax || 0} MYR\nITEMS EXTRACTED:\n` + extractedItems.map((it: { description: string; qty: number; price: number }) => `• ${it.description} x${it.qty} = ${it.price.toFixed(2)} MYR`).join("\n"),
+        extractedText: ocr.rawTextStream || JSON.stringify(ocr, null, 2),
         items: extractedItems,
-        tax: Number(ocr.tax) || 0,
+        tax: extractedTax,
       });
 
     } catch (err: unknown) {
-      console.warn("Real Groq OCR API call failed, falling back to simulated parser:", err);
-      const errMsg = err instanceof Error ? err.message : "OCR API call failed";
+      console.error("Groq OCR processing exception:", err);
+      const errMsg = err instanceof Error ? err.message : "OCR API processing error";
       setScanLogs((prev) => [
         ...prev,
-        `[WARNING] GROQ API: ${errMsg}`,
-        "[FALLBACK] ENGAGING SECONDARY OCR TELEMETRY PARSER...",
+        `[ERROR] OCR FAILED: ${errMsg}`,
+        "[SYSTEM] PLEASE RETAKE PHOTO WITH EVEN LIGHTING & CLEAR RECEIPT BOUNDS",
       ]);
-
-      const fallbackMerchant = isRealFile
-        ? (fileArg as File).name.replace(/\.[^/.]+$/, "").toUpperCase().replace(/[-_]/g, " ")
-        : "IKEA FURNISHING STORE";
-      const fallbackAmount = Math.floor(120 + Math.random() * 380) + 0.5;
-
-      const fallbackItems = [
-        { description: `${fallbackMerchant} ITEM A`, qty: 1, price: Math.round(fallbackAmount * 0.6 * 100) / 100 },
-        { description: `${fallbackMerchant} ITEM B`, qty: 2, price: Math.round(fallbackAmount * 0.2 * 100) / 100 },
-      ];
-
-      const draftRec: ReceiptRecord = {
-        id: `JK-R-${Math.floor(8850 + Math.random() * 100)}`,
-        merchant: fallbackMerchant.substring(0, 25),
-        category: "business",
-        date: new Date().toISOString().split("T")[0],
-        amount: fallbackAmount,
-        status: "PENDING",
-        itemsCount: fallbackItems.length,
-      };
-
-      setLatestScannedResult({
-        record: draftRec,
-        fileName: fileName,
-        previewUrl: previewUrl,
-        extractedText: `--- SECONDARY OCR TELEMETRY PARSER ---\nMERCHANT: ${fallbackMerchant}\nDATE: ${draftRec.date}\nTOTAL: ${fallbackAmount.toFixed(2)} MYR\nITEMS DETECTED: 2 POS ITEMS\nNOTE: ${errMsg}`,
-        items: fallbackItems,
-        tax: Math.round(fallbackAmount * 0.06 * 100) / 100,
-      });
     } finally {
       setIsScanning(false);
     }
