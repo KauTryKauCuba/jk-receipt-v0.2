@@ -344,6 +344,7 @@ async function runGemini(
           ],
           generationConfig: {
             temperature: 0.0,
+            maxOutputTokens: 350,
             responseMimeType: "application/json",
           },
         }),
@@ -404,6 +405,7 @@ async function runGroq(
             },
           ],
           temperature: 0.0,
+          max_tokens: 350,
           response_format: { type: "json_object" },
         }),
         signal: AbortSignal.timeout(20000),
@@ -612,25 +614,9 @@ export async function POST(req: NextRequest) {
     const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
     const base64DataOnly = imageBase64.replace(/^data:image\/[a-z0-9\+\-\.]+;base64,/i, "");
 
-    const prompt = `You are a high-precision receipt OCR parser. Analyze the attached receipt image and output JSON matching this exact schema:
-{
-  "merchant": "MERCHANT NAME IN ALL CAPS",
-  "date": "YYYY-MM-DD",
-  "category": "business",
-  "subtotal": 0.00,
-  "tax": 0.00,
-  "total": 0.00,
-  "items": [
-    {"description": "ITEM NAME", "qty": 1, "price": 0.00}
-  ],
-  "rawTextStream": "Complete raw readable text extracted line by line from receipt"
-}
-Rules:
-1. "merchant" must be store or business title in UPPERCASE.
-2. "date" must be formatted as YYYY-MM-DD.
-3. "subtotal", "tax", and "total" must be numbers (e.g. 45.90).
-4. "items" array must contain individual purchased items with price and qty.
-5. Return valid JSON ONLY without markdown wrapping or conversational text.`;
+    const prompt = `Extract receipt data as compact JSON matching this schema:
+{"merchant":"STORE NAME IN ALL CAPS","date":"YYYY-MM-DD","category":"business","subtotal":0.00,"tax":0.00,"total":0.00,"items":[{"description":"ITEM NAME","qty":1,"price":0.00}],"rawTextStream":"exact readable text"}
+Return valid JSON ONLY without markdown wrapping.`;
 
     const engineKey = String(preferredEngine || "gemini").toLowerCase();
     let ocrResult: { content: string; engine: string; error?: string } = { content: "", engine: "" };
