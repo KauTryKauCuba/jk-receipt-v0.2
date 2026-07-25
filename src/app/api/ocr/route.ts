@@ -318,7 +318,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
         }
 
         if (modelNames.length > 0) {
-          return { model: modelNames[0].name, workingHost: host };
+          return { model: modelNames[0], workingHost: host };
         }
         return { model: requestedModel, workingHost: host };
       }
