@@ -281,13 +281,10 @@ function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
 // Helper to get candidate Ollama URLs for Linux Docker / VPS compatibility
 function getOllamaHostCandidates(): string[] {
   const envHost = process.env.OLLAMA_HOST;
-  const candidates: string[] = [
-    "http://172.17.0.1:11434",
-    "http://host.docker.internal:11434",
-  ];
-  if (envHost && !envHost.includes("127.0.0.1") && !envHost.includes("localhost")) {
-    candidates.unshift(envHost);
-  }
+  const candidates: string[] = [];
+  if (envHost) candidates.push(envHost);
+  candidates.push("http://host.docker.internal:11434");
+  candidates.push("http://172.17.0.1:11434");
   candidates.push("http://127.0.0.1:11434");
   candidates.push("http://localhost:11434");
   return Array.from(new Set(candidates));
@@ -299,7 +296,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
 
   for (const host of hostCandidates) {
     try {
-      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(8000) });
+      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(15000) });
       if (tagsRes.ok) {
         const tagsData = await tagsRes.json();
         const availableModels: Array<{ name: string }> = tagsData.models || [];
@@ -331,12 +328,12 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
     }
   }
 
-  return { model: requestedModel, workingHost: "http://172.17.0.1:11434" };
+  return { model: requestedModel, workingHost: ollamaHost };
 }
 
 async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {
-  const defaultHost = process.env.OLLAMA_HOST || "http://localhost:11434";
-  const preferredModel = process.env.LOCAL_VISION_MODEL || "llama3.2-vision";
+  const defaultHost = process.env.OLLAMA_HOST || "http://172.17.0.1:11434";
+  const preferredModel = process.env.LOCAL_VISION_MODEL || "llama3.2-vision:latest";
   const { model: localModel, workingHost: ollamaHost } = await discoverOllamaVisionModel(defaultHost, preferredModel);
 
   const hostCandidates = Array.from(new Set([ollamaHost, ...getOllamaHostCandidates()]));
@@ -346,9 +343,9 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
     try {
       console.log(`Attempting Local Ollama AI Vision (${localModel}) at ${host}...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90-second timeout for model cold-starts
 
-      // Try Ollama /api/chat with format: "json"
+      // 1. Try Ollama /api/chat with format: "json"
       let ollamaRes = await fetch(`${host}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -363,13 +360,34 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
           ],
           stream: false,
           format: "json",
-          options: { temperature: 0.1, num_predict: 768 },
+          options: { temperature: 0.1 },
         }),
         signal: controller.signal,
       });
 
+      // 2. Fallback without format: "json" if model/API returns error
       if (!ollamaRes.ok) {
-        // Fallback to /api/generate endpoint if /api/chat fails
+        ollamaRes = await fetch(`${host}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: localModel,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+                images: [base64DataOnly],
+              },
+            ],
+            stream: false,
+            options: { temperature: 0.1 },
+          }),
+          signal: controller.signal,
+        });
+      }
+
+      // 3. Fallback to /api/generate endpoint if /api/chat fails
+      if (!ollamaRes.ok) {
         ollamaRes = await fetch(`${host}/api/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -378,8 +396,7 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
             prompt: prompt,
             images: [base64DataOnly],
             stream: false,
-            format: "json",
-            options: { temperature: 0.1, num_predict: 768 },
+            options: { temperature: 0.1 },
           }),
           signal: controller.signal,
         });
