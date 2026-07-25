@@ -105,9 +105,23 @@ export default function CameraScannerModal({
 
     let dataUrl: string | undefined;
     if (videoRef.current && videoRef.current.videoWidth > 0) {
+      const MAX_DIM = 1200;
+      let width = videoRef.current.videoWidth;
+      let height = videoRef.current.videoHeight;
+
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+      }
+
       const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (ctx) {
         // High-precision OCR Pre-Processing filter
@@ -118,8 +132,8 @@ export default function CameraScannerModal({
         } else {
           ctx.filter = "none";
         }
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+        ctx.drawImage(videoRef.current, 0, 0, width, height);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.88);
       }
     } else {
       // Fallback generator for simulation mode

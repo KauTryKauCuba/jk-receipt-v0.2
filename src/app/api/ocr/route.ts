@@ -155,36 +155,44 @@ CRITICAL PARSING RULES:
           throw new Error("No JSON structure matched");
         }
       } catch (err) {
-        console.warn("Raw vision response was not pure JSON, parsing key-values:", cleanContent, err);
+        console.warn("Raw vision response was not pure JSON, parsing dynamic text stream:", cleanContent, err);
         
-        // Fallback intelligent text-to-JSON extractor for unstructured model readouts
-        const merchantMatch = contentString.match(/Merchant:\s*([^\n]+)/i) || contentString.match(/STORE:\s*([^\n]+)/i) || contentString.match(/([A-Z0-9\s.]{3,30}\b)/);
-        const dateMatch = contentString.match(/Date:\s*([0-9\-\/]+)/i) || contentString.match(/([0-9]{2,4}[\-\/][0-9]{1,2}[\-\/][0-9]{1,4})/);
-        const totalMatch = contentString.match(/Total:\s*RM?\s*([0-9.]+)/i) || contentString.match(/([0-9]+\.[0-9]{2})/);
-        
-        const extractedMerchant = merchantMatch ? merchantMatch[1].trim().toUpperCase() : "99 SPEED MART SDN. BHD.";
-        let extractedDate = dateMatch ? dateMatch[1].trim() : "2026-07-24";
+        // Dynamic fallback extractor from actual OCR text stream
+        const lines = cleanContent
+          .split("\n")
+          .map((l: string) => l.replace(/[\*#_`]/g, "").trim())
+          .filter((l: string) => l.length > 2 && !l.startsWith("{") && !l.startsWith("}"));
+
+        // Extract merchant from first header line
+        const headerCandidate = lines.find((l: string) => /^[A-Z0-9\s.&'-]{3,40}$/i.test(l)) || lines[0] || "STORE RECEIPT";
+        const extractedMerchant = headerCandidate.toUpperCase();
+
+        // Extract date
+        const dateMatch = cleanContent.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/);
+        let extractedDate = dateMatch ? dateMatch[1].replace(/\//g, "-") : new Date().toISOString().split("T")[0];
         if (extractedDate.length === 8 && extractedDate.includes("-")) {
-          // Format 24-07-26 -> 2026-07-24
           const parts = extractedDate.split("-");
           if (parts[2].length === 2) {
             extractedDate = `20${parts[2]}-${parts[1]}-${parts[0]}`;
           }
         }
 
-        const extractedTotal = totalMatch ? parseFloat(totalMatch[1]) : 87.34;
+        // Extract monetary amounts (find highest number for total)
+        const numberMatches = Array.from(cleanContent.matchAll(/(?:RM|\$)?\s*(\d+\.\d{2})/gi), (m: RegExpMatchArray) => parseFloat(m[1]));
+        const extractedTotal = numberMatches.length > 0 ? Math.max(...numberMatches) : 0.00;
+        const extractedSubtotal = numberMatches.length > 1 ? Math.min(...numberMatches) : extractedTotal;
 
         parsedResult = {
           merchant: extractedMerchant,
           date: extractedDate,
           category: "business",
-          subtotal: extractedTotal,
-          tax: Math.round(extractedTotal * 0.06 * 100) / 100,
+          subtotal: extractedSubtotal,
+          tax: Math.round((extractedTotal - extractedSubtotal) * 100) / 100 || 0.00,
           total: extractedTotal,
           items: [
-            { description: `${extractedMerchant} PURCHASE ITEM`, qty: 1, price: extractedTotal }
+            { description: `${extractedMerchant} RECORD`, qty: 1, price: extractedTotal }
           ],
-          rawTextStream: contentString
+          rawTextStream: cleanContent
         };
       }
     }
