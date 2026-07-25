@@ -55,10 +55,8 @@ CRITICAL RULES:
 }
 \`\`\``;
 
-    // Dual/Triple Vision Model Fallback Chain (100% Free on Groq)
+    // Active Groq Vision & Reasoning Models
     const visionModels = [
-      "llama-3.2-11b-vision-preview",
-      "llama-3.2-90b-vision-preview",
       "qwen/qwen3.6-27b",
     ];
 

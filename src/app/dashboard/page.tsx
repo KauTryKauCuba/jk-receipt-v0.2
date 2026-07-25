@@ -186,7 +186,7 @@ export default function DashboardPage() {
 
     setScanLogs([
       `[FILE] RECEIVED: ${fileName}`,
-      "[GROQ AI] CONNECTING TO GROQ VISION API (LLAMA-3.2-11B)...",
+      "[GROQ AI] CONNECTING TO GROQ VISION API (QWEN-3.6-27B)...",
     ]);
 
     try {
