@@ -360,7 +360,11 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
           ],
           stream: false,
           format: "json",
-          options: { temperature: 0.1 },
+          options: {
+            temperature: 0.1,
+            num_predict: 300,
+            num_ctx: 2048,
+          },
         }),
         signal: controller.signal,
       });
@@ -380,7 +384,11 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
               },
             ],
             stream: false,
-            options: { temperature: 0.1 },
+            options: {
+              temperature: 0.1,
+              num_predict: 300,
+              num_ctx: 2048,
+            },
           }),
           signal: controller.signal,
         });
@@ -396,7 +404,11 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
             prompt: prompt,
             images: [base64DataOnly],
             stream: false,
-            options: { temperature: 0.1 },
+            options: {
+              temperature: 0.1,
+              num_predict: 300,
+              num_ctx: 2048,
+            },
           }),
           signal: controller.signal,
         });
