@@ -13,7 +13,7 @@ services:
       - PORT=3000
       - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
       - OLLAMA_HOST=${OLLAMA_HOST:-http://172.17.0.1:11434}
-      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llama3.2-vision:latest}
+      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-Garnet-OCR-3B-0422-GGUF:Q4_K_M}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
