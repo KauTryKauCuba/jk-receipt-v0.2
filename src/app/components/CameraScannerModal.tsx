@@ -5,19 +5,26 @@ import { useState, useEffect, useRef, useCallback } from "react";
 interface CameraScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCapture: (imageDataUrl?: string) => void;
+  onCapture: (imageDataUrl?: string, selectedEngine?: string) => void;
+  defaultEngine?: string;
 }
 
 export default function CameraScannerModal({
   isOpen,
   onClose,
   onCapture,
+  defaultEngine = "auto",
 }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [selectedEngine, setSelectedEngine] = useState(defaultEngine);
+
+  useEffect(() => {
+    setSelectedEngine(defaultEngine);
+  }, [defaultEngine]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -124,7 +131,7 @@ export default function CameraScannerModal({
     setTimeout(() => {
       setIsCapturing(false);
       stopCamera();
-      onCapture(dataUrl);
+      onCapture(dataUrl, selectedEngine);
     }, 250);
   };
 
@@ -389,22 +396,50 @@ export default function CameraScannerModal({
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             justifyContent: "space-between",
             alignItems: "center",
+            gap: "12px",
             padding: "14px 18px",
             backgroundColor: "var(--surface-raised)",
             borderTop: "1px solid var(--border-visible)",
           }}
         >
-          <span
-            style={{
-              fontFamily: "var(--font-data)",
-              fontSize: "10px",
-              color: "var(--text-secondary)",
-            }}
-          >
-            ALIGN RECEIPT BOUNDS WITHIN GREEN RETICLE
-          </span>
+          {/* MODEL ENGINE SELECTOR */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-data)",
+                fontSize: "10px",
+                fontWeight: "700",
+                color: "var(--text-secondary)",
+                letterSpacing: "0.06em",
+              }}
+            >
+              MODEL ENGINE:
+            </span>
+            <select
+              value={selectedEngine}
+              onChange={(e) => setSelectedEngine(e.target.value)}
+              style={{
+                backgroundColor: "var(--surface)",
+                color: "var(--text-display)",
+                border: "1px solid var(--border-visible)",
+                borderRadius: "6px",
+                padding: "5px 10px",
+                fontFamily: "var(--font-data)",
+                fontSize: "11px",
+                fontWeight: "600",
+                cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="auto">✨ Auto (Smart Fallback)</option>
+              <option value="gemini">⚡ Gemini 2.0 Flash (Free)</option>
+              <option value="groq">☁️ Groq Cloud (Qwen 3.6)</option>
+              <option value="ollama">💻 Local Ollama (Llava 7b)</option>
+            </select>
+          </div>
 
           <button
             type="button"

@@ -129,17 +129,139 @@ function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
   };
 }
 
+async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {
+  const ollamaHost = process.env.OLLAMA_HOST || "http://localhost:11434";
+  const localModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
+  try {
+    console.log(`Attempting Local Ollama AI (${localModel}) at ${ollamaHost}...`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: localModel,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+            images: [base64DataOnly],
+          },
+        ],
+        stream: false,
+        options: { temperature: 0.1 },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (ollamaRes.ok) {
+      const ollamaData = await ollamaRes.json();
+      if (ollamaData.message?.content) {
+        return { content: ollamaData.message.content, engine: `Local Ollama (${localModel})` };
+      }
+    }
+    const errTxt = await ollamaRes.text();
+    return { content: "", engine: `Local Ollama (${localModel})`, error: `Local Ollama (${localModel}): ${errTxt}` };
+  } catch (localErr) {
+    const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
+    return { content: "", engine: `Local Ollama (${localModel})`, error: `Local Ollama (${localModel}): ${errMsg}` };
+  }
+}
+
+async function runGemini(prompt: string, base64DataOnly: string, mimeType: string, apiKey: string, model: string): Promise<{ content: string; engine: string; error?: string }> {
+  try {
+    console.log(`Attempting Gemini Flash API (${model})...`);
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64DataOnly,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          },
+        }),
+      }
+    );
+
+    if (geminiRes.ok) {
+      const geminiData = await geminiRes.json();
+      const textResult = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (textResult) {
+        return { content: textResult, engine: `Gemini Flash (${model})` };
+      }
+    }
+    const errTxt = await geminiRes.text();
+    return { content: "", engine: `Gemini Flash (${model})`, error: `Gemini Flash API (${model}): ${errTxt}` };
+  } catch (geminiErr) {
+    const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+    return { content: "", engine: `Gemini Flash (${model})`, error: `Gemini Flash API (${model}): ${errMsg}` };
+  }
+}
+
+async function runGroq(prompt: string, formattedImage: string, apiKey: string): Promise<{ content: string; engine: string; error?: string }> {
+  const cloudModel = "qwen/qwen3.6-27b";
+  try {
+    console.log(`Falling back to Groq Cloud AI (${cloudModel})...`);
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: cloudModel,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: formattedImage },
+              },
+            ],
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 450,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.choices?.[0]?.message?.content) {
+        return { content: data.choices[0].message.content, engine: `Groq Cloud (${cloudModel})` };
+      }
+    }
+    const errTxt = await res.text();
+    return { content: "", engine: `Groq Cloud (${cloudModel})`, error: `Groq Vision model ${cloudModel}: ${errTxt}` };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    return { content: "", engine: `Groq Cloud (${cloudModel})`, error: `Groq Vision model ${cloudModel}: ${errMsg}` };
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: true, data: generateFailsafeTelemetry("GROQ_API_KEY missing") }
-      );
-    }
-
     const body = await req.json();
-    const { imageBase64 } = body;
+    const { imageBase64, preferredEngine } = body;
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json(
@@ -148,11 +270,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const groqApiKey = process.env.GROQ_API_KEY;
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
     const formattedImage = imageBase64.startsWith("data:")
       ? imageBase64
       : `data:image/jpeg;base64,${imageBase64}`;
 
-    const base64DataOnly = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+    const base64DataOnly = imageBase64.replace(/^data:image\/[a-z0-9\+\-\.]+;base64,/, "");
+
+    let mimeType = "image/jpeg";
+    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,/);
+    if (mimeMatch) {
+      mimeType = mimeMatch[1];
+    }
 
     const prompt = `Parse receipt image into JSON object:
 {"merchant":"NAME IN UPPERCASE","date":"YYYY-MM-DD","category":"business","subtotal":0.00,"tax":0.00,"total":0.00,"items":[{"description":"ITEM","qty":1,"price":0.00}],"rawTextStream":"Text"}
@@ -162,95 +294,36 @@ Return JSON string only.`;
     let lastErrorText = "";
     let usedEngine = "";
 
-    // TIER 1: Try Local Ollama AI Server (llava:7b)
-    const ollamaHost = process.env.OLLAMA_HOST || "http://localhost:11434";
-    const localModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
+    // Define priority tasks based on preferredEngine ("gemini" | "groq" | "ollama" | "auto")
+    const tasks: Array<() => Promise<{ content: string; engine: string; error?: string }>> = [];
 
-    try {
-      console.log(`Attempting Local Ollama AI (${localModel}) at ${ollamaHost}...`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second local timeout
-
-      const ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: localModel,
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-              images: [base64DataOnly],
-            },
-          ],
-          stream: false,
-          options: { temperature: 0.1 },
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (ollamaRes.ok) {
-        const ollamaData = await ollamaRes.json();
-        if (ollamaData.message?.content) {
-          contentString = ollamaData.message.content;
-          usedEngine = `Local Ollama (${localModel})`;
-          console.log(`Local Ollama AI (${localModel}) successfully processed receipt.`);
-        }
-      } else {
-        const errTxt = await ollamaRes.text();
-        console.warn(`Local Ollama (${localModel}) status ${ollamaRes.status}: ${errTxt}`);
-        lastErrorText = `Local Ollama (${localModel}): ${errTxt}`;
-      }
-    } catch (localErr) {
-      const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
-      console.warn(`Local Ollama (${localModel}) unavailable or timed out: ${errMsg}`);
-      lastErrorText = `Local Ollama (${localModel}): ${errMsg}`;
+    if (preferredEngine === "gemini") {
+      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
+      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
+      tasks.push(() => runOllama(prompt, base64DataOnly));
+    } else if (preferredEngine === "groq") {
+      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
+      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
+      tasks.push(() => runOllama(prompt, base64DataOnly));
+    } else if (preferredEngine === "ollama") {
+      tasks.push(() => runOllama(prompt, base64DataOnly));
+      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
+      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
+    } else {
+      // Default / Auto Smart Chain: Gemini -> Groq -> Ollama
+      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
+      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
+      tasks.push(() => runOllama(prompt, base64DataOnly));
     }
 
-    // TIER 2: Fallback to Cloud Groq Vision AI (qwen/qwen3.6-27b) if local failed
-    if (!contentString && apiKey) {
-      const cloudModel = "qwen/qwen3.6-27b";
-      try {
-        console.log(`Falling back to Groq Cloud AI (${cloudModel})...`);
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: cloudModel,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  {
-                    type: "image_url",
-                    image_url: { url: formattedImage },
-                  },
-                ],
-              },
-            ],
-            temperature: 0.1,
-            max_tokens: 450,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.choices?.[0]?.message?.content) {
-            contentString = data.choices[0].message.content;
-            usedEngine = `Groq Cloud (${cloudModel})`;
-          }
-        } else {
-          lastErrorText = await res.text();
-          console.warn(`Groq Vision model ${cloudModel} returned status ${res.status}: ${lastErrorText}`);
-        }
-      } catch (e) {
-        console.warn(`Cloud Groq model ${cloudModel} fetch exception:`, e);
-        lastErrorText = e instanceof Error ? e.message : "Groq fetch exception";
+    for (const task of tasks) {
+      const res = await task();
+      if (res.content) {
+        contentString = res.content;
+        usedEngine = res.engine;
+        break;
+      } else if (res.error) {
+        lastErrorText = res.error;
       }
     }
 

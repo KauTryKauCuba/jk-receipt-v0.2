@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [selectedOcrEngine, setSelectedOcrEngine] = useState("auto");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -128,9 +129,10 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  // Real Groq AI Optical OCR scan process
-  const triggerScan = async (fileArg?: File | string | React.MouseEvent | unknown, customPreviewUrl?: string) => {
+  // Real Groq / Gemini / Ollama AI Optical OCR scan process
+  const triggerScan = async (fileArg?: File | string | React.MouseEvent | unknown, customPreviewUrl?: string, overrideEngine?: string) => {
     setIsScanning(true);
+    const activeEngine = overrideEngine || selectedOcrEngine;
 
     let base64DataUrl: string | undefined = typeof customPreviewUrl === "string" ? customPreviewUrl : undefined;
     const isRealFile = typeof fileArg === "object" && fileArg !== null && "name" in fileArg && typeof (fileArg as File).name === "string";
@@ -154,7 +156,7 @@ export default function DashboardPage() {
 
     setScanLogs([
       `[FILE] RECEIVED: ${fileName}`,
-      "[AI VISION] CONNECTING TO OPTICAL VISION ENGINE (OLLAMA LLAVA / GROQ QWEN)...",
+      `[AI VISION] CONNECTING TO OPTICAL VISION ENGINE (${activeEngine.toUpperCase()})...`,
     ]);
 
     try {
@@ -201,7 +203,10 @@ export default function DashboardPage() {
       const response = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: compressedImage }),
+        body: JSON.stringify({
+          imageBase64: compressedImage,
+          preferredEngine: activeEngine,
+        }),
       });
 
       if (!response.ok) {
@@ -1385,6 +1390,28 @@ export default function DashboardPage() {
                         </svg>
                         <span>[ UPLOAD / DROP FILE ]</span>
                       </button>
+
+                      <select
+                        value={selectedOcrEngine}
+                        onChange={(e) => setSelectedOcrEngine(e.target.value)}
+                        style={{
+                          backgroundColor: "var(--surface)",
+                          color: "var(--text-display)",
+                          border: "1px solid var(--border-visible)",
+                          borderRadius: "8px",
+                          padding: "8px 12px",
+                          fontFamily: "var(--font-data)",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                          outline: "none",
+                        }}
+                      >
+                        <option value="auto">✨ Auto (Smart Fallback)</option>
+                        <option value="gemini">⚡ Gemini 2.0 Flash (Free)</option>
+                        <option value="groq">☁️ Groq Cloud (Qwen 3.6)</option>
+                        <option value="ollama">💻 Local Ollama (Llava 7b)</option>
+                      </select>
                     </div>
 
                     <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--text-secondary)", marginTop: "4px" }}>
@@ -1736,9 +1763,13 @@ export default function DashboardPage() {
       <CameraScannerModal
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
-        onCapture={(imgDataUrl) => {
+        defaultEngine={selectedOcrEngine}
+        onCapture={(imgDataUrl, chosenEngine) => {
           setIsCameraOpen(false);
-          triggerScan("CAMERA_CAPTURED_RECEIPT.JPG", imgDataUrl);
+          if (chosenEngine) {
+            setSelectedOcrEngine(chosenEngine);
+          }
+          triggerScan("CAMERA_CAPTURED_RECEIPT.JPG", imgDataUrl, chosenEngine);
         }}
       />
     </div>
