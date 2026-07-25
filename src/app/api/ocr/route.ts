@@ -278,102 +278,127 @@ function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
   };
 }
 
+// Helper to get candidate Ollama URLs for Linux Docker / VPS compatibility
+function getOllamaHostCandidates(): string[] {
+  const envHost = process.env.OLLAMA_HOST;
+  const candidates: string[] = [];
+  if (envHost) candidates.push(envHost);
+  candidates.push("http://host.docker.internal:11434");
+  candidates.push("http://172.17.0.1:11434");
+  candidates.push("http://127.0.0.1:11434");
+  candidates.push("http://localhost:11434");
+  return Array.from(new Set(candidates));
+}
+
 // Auto-discover available vision models on Ollama instance
-async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: string): Promise<string> {
-  try {
-    const tagsRes = await fetch(`${ollamaHost}/api/tags`);
-    if (tagsRes.ok) {
-      const tagsData = await tagsRes.json();
-      const availableModels: Array<{ name: string }> = tagsData.models || [];
-      const modelNames = availableModels.map((m) => m.name);
+async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: string): Promise<{ model: string; workingHost: string }> {
+  const hostCandidates = getOllamaHostCandidates();
 
-      // Check if requested model exists
-      if (modelNames.some((n) => n.startsWith(requestedModel) || n.includes(requestedModel))) {
-        return requestedModel;
-      }
+  for (const host of hostCandidates) {
+    try {
+      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      if (tagsRes.ok) {
+        const tagsData = await tagsRes.json();
+        const availableModels: Array<{ name: string }> = tagsData.models || [];
+        const modelNames = availableModels.map((m) => m.name);
 
-      // Look for known high-performance vision models installed on host
-      const visionKeywords = ["llama3.2-vision", "qwen2-vl", "minicpm-v", "bakllava", "llava", "vision"];
-      for (const keyword of visionKeywords) {
-        const match = modelNames.find((n) => n.toLowerCase().includes(keyword));
-        if (match) {
-          console.log(`Auto-discovered local Ollama vision model: ${match}`);
-          return match;
+        // Check if requested model exists
+        if (modelNames.some((n) => n.startsWith(requestedModel) || n.includes(requestedModel))) {
+          return { model: requestedModel, workingHost: host };
         }
-      }
 
-      if (modelNames.length > 0) {
-        return modelNames[0];
+        // Look for known high-performance vision models installed on host
+        const visionKeywords = ["llama3.2-vision", "qwen2-vl", "minicpm-v", "bakllava", "llava", "vision"];
+        for (const keyword of visionKeywords) {
+          const match = modelNames.find((n) => n.toLowerCase().includes(keyword));
+          if (match) {
+            console.log(`Auto-discovered local Ollama vision model: ${match} at ${host}`);
+            return { model: match, workingHost: host };
+          }
+        }
+
+        if (modelNames.length > 0) {
+          return { model: modelNames[0].name, workingHost: host };
+        }
+        return { model: requestedModel, workingHost: host };
       }
+    } catch {
+      // try next host candidate
     }
-  } catch (err) {
-    console.warn("Failed to query Ollama tags API:", err);
   }
-  return requestedModel;
+
+  return { model: requestedModel, workingHost: ollamaHost };
 }
 
 async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {
-  const ollamaHost = process.env.OLLAMA_HOST || "http://localhost:11434";
-  const preferredModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
-  const localModel = await discoverOllamaVisionModel(ollamaHost, preferredModel);
+  const defaultHost = process.env.OLLAMA_HOST || "http://localhost:11434";
+  const preferredModel = process.env.LOCAL_VISION_MODEL || "llama3.2-vision";
+  const { model: localModel, workingHost: ollamaHost } = await discoverOllamaVisionModel(defaultHost, preferredModel);
 
-  try {
-    console.log(`Attempting Local Ollama AI Vision (${localModel}) at ${ollamaHost}...`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const hostCandidates = Array.from(new Set([ollamaHost, ...getOllamaHostCandidates()]));
+  let lastErrStr = "";
 
-    // Try Ollama /api/chat with format: "json"
-    let ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: localModel,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-            images: [base64DataOnly],
-          },
-        ],
-        stream: false,
-        format: "json",
-        options: { temperature: 0.1, num_predict: 768 },
-      }),
-      signal: controller.signal,
-    });
+  for (const host of hostCandidates) {
+    try {
+      console.log(`Attempting Local Ollama AI Vision (${localModel}) at ${host}...`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    if (!ollamaRes.ok) {
-      // Fallback to /api/generate endpoint if /api/chat fails
-      ollamaRes = await fetch(`${ollamaHost}/api/generate`, {
+      // Try Ollama /api/chat with format: "json"
+      let ollamaRes = await fetch(`${host}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: localModel,
-          prompt: prompt,
-          images: [base64DataOnly],
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+              images: [base64DataOnly],
+            },
+          ],
           stream: false,
           format: "json",
           options: { temperature: 0.1, num_predict: 768 },
         }),
         signal: controller.signal,
       });
-    }
 
-    clearTimeout(timeoutId);
-
-    if (ollamaRes.ok) {
-      const ollamaData = await ollamaRes.json();
-      const extractedContent = ollamaData.message?.content || ollamaData.response;
-      if (extractedContent) {
-        return { content: extractedContent, engine: `Local Ollama Vision (${localModel})` };
+      if (!ollamaRes.ok) {
+        // Fallback to /api/generate endpoint if /api/chat fails
+        ollamaRes = await fetch(`${host}/api/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: localModel,
+            prompt: prompt,
+            images: [base64DataOnly],
+            stream: false,
+            format: "json",
+            options: { temperature: 0.1, num_predict: 768 },
+          }),
+          signal: controller.signal,
+        });
       }
+
+      clearTimeout(timeoutId);
+
+      if (ollamaRes.ok) {
+        const ollamaData = await ollamaRes.json();
+        const extractedContent = ollamaData.message?.content || ollamaData.response;
+        if (extractedContent) {
+          return { content: extractedContent, engine: `Local Ollama Vision (${localModel})` };
+        }
+      }
+      const errTxt = await ollamaRes.text();
+      lastErrStr = `Host ${host} (${localModel}): ${errTxt}`;
+    } catch (localErr) {
+      const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
+      lastErrStr = `Host ${host} (${localModel}): ${errMsg}`;
     }
-    const errTxt = await ollamaRes.text();
-    return { content: "", engine: `Local Ollama Vision (${localModel})`, error: `Local Ollama (${localModel}): ${errTxt}` };
-  } catch (localErr) {
-    const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
-    return { content: "", engine: `Local Ollama Vision (${localModel})`, error: `Local Ollama (${localModel}): ${errMsg}` };
   }
+
+  return { content: "", engine: `Local Ollama Vision (${localModel})`, error: lastErrStr || "Ollama host connection failed" };
 }
 
 export async function POST(req: NextRequest) {
