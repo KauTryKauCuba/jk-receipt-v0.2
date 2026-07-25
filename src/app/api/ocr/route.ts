@@ -25,35 +25,33 @@ export async function POST(req: NextRequest) {
       ? imageBase64
       : `data:image/jpeg;base64,${imageBase64}`;
 
-    const prompt = `System: You are an ultra-high precision optical receipt parser for commercial receipts, thermal paper slips, and invoices.
-Do NOT output any reasoning, chain-of-thought, or text outside the JSON code block. Output ONLY valid JSON inside \`\`\`json ... \`\`\`.
+    const prompt = `System: You are an optical receipt parser. Read the attached image carefully and extract the text visible on THIS specific receipt.
+Output ONLY a valid JSON block inside \`\`\`json ... \`\`\`. Do NOT output any reasoning or text outside the JSON block.
 
-CRITICAL PARSING RULES:
-- 'merchant': Full store/vendor name in uppercase (e.g. "99 SPEED MART SDN BHD", "STARBUCKS COFFEE", "SHELL").
-- 'date': Date in YYYY-MM-DD format. If ambiguous, infer year 2026.
-- 'category': Categorize as one of: "business", "tax", "household", "warranties", "medical".
-- 'subtotal': Amount before tax/SST or discounts.
-- 'tax': Tax or SST (6%/8%) amount paid.
-- 'total': Final net total amount paid (e.g. MYR / USD total).
-- 'items': Array of extracted product line items. Each line item MUST contain:
-  - 'description': Clean item description in uppercase.
-  - 'qty': Purchased quantity (number, default 1).
-  - 'price': Total price for this line item (number).
+CRITICAL RULES:
+- 'merchant': Store/vendor name printed on the receipt image (in uppercase).
+- 'date': Transaction date in YYYY-MM-DD format (e.g. 2026-07-25).
+- 'category': One of: "business", "tax", "household", "warranties", "medical".
+- 'subtotal': Total before tax/SST.
+- 'tax': Tax or SST amount paid (0.00 if none).
+- 'total': Net total amount paid.
+- 'items': Array of extracted line items. Each item MUST contain:
+  - 'description': Item name printed on receipt.
+  - 'qty': Quantity (number).
+  - 'price': Line item total price (number).
 
 \`\`\`json
 {
-  "merchant": "99 SPEED MART SDN. BHD.",
-  "date": "2026-07-25",
+  "merchant": "EXTRACTED_STORE_NAME",
+  "date": "YYYY-MM-DD",
   "category": "business",
-  "subtotal": 28.45,
+  "subtotal": 0.00,
   "tax": 0.00,
-  "total": 28.45,
+  "total": 0.00,
   "items": [
-    { "description": "DUTCH LADY MILK 1L", "qty": 1, "price": 7.50 },
-    { "description": "PANADOL EXTRA (BOX)", "qty": 1, "price": 13.95 },
-    { "description": "PLASTIC BAG", "qty": 1, "price": 0.20 }
+    { "description": "EXTRACTED_ITEM_NAME", "qty": 1, "price": 0.00 }
   ],
-  "rawTextStream": "FULL OCR STREAM LINES"
+  "rawTextStream": "ALL_TEXT_READABLE_FROM_IMAGE"
 }
 \`\`\``;
 
