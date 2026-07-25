@@ -154,7 +154,7 @@ export default function DashboardPage() {
 
     setScanLogs([
       `[FILE] RECEIVED: ${fileName}`,
-      "[GROQ AI] CONNECTING TO GROQ VISION API (LLAMA-3.2-11B)...",
+      "[GROQ AI] CONNECTING TO GROQ VISION API (QWEN/QWEN3.6-27B)...",
     ]);
 
     try {
@@ -162,12 +162,45 @@ export default function DashboardPage() {
         throw new Error("No image data provided for OCR analysis.");
       }
 
+      setScanLogs((prev) => [...prev, "[GROQ AI] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
+
+      // Downscale high-res camera captures (e.g. 12MB 4K photos) to max 1280px width for sub-second API delivery
+      const compressedImage = await new Promise<string>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          const maxDim = 1280;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.85));
+          } else {
+            resolve(base64DataUrl);
+          }
+        };
+        img.onerror = () => resolve(base64DataUrl);
+        img.src = base64DataUrl;
+      });
+
       setScanLogs((prev) => [...prev, "[GROQ AI] EXTRACTING MERCHANT, TOTALS & ITEMIZATIONS..."]);
 
       const response = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64DataUrl }),
+        body: JSON.stringify({ imageBase64: compressedImage }),
       });
 
       if (!response.ok) {
