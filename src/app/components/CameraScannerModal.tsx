@@ -17,13 +17,35 @@ export default function CameraScannerModal({
   const streamRef = useRef<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"ENHANCED" | "THERMAL" | "ORIGINAL">("ENHANCED");
+  const [isTorchOn, setIsTorchOn] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+
+  const toggleTorch = async () => {
+    if (streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0];
+      if (track) {
+        try {
+          const capabilities = track.getCapabilities() as { torch?: boolean };
+          if (capabilities.torch) {
+            await track.applyConstraints({
+              advanced: [{ torch: !isTorchOn } as unknown as MediaTrackConstraintSet],
+            });
+            setIsTorchOn(!isTorchOn);
+          }
+        } catch (e) {
+          console.warn("Torch toggle not supported on this device lens:", e);
+        }
+      }
+    }
+  };
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    setIsTorchOn(false);
   }, []);
 
   useEffect(() => {
@@ -44,8 +66,8 @@ export default function CameraScannerModal({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
           },
           audio: false,
         });
@@ -88,11 +110,19 @@ export default function CameraScannerModal({
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext("2d");
       if (ctx) {
+        // High-precision OCR Pre-Processing filter
+        if (filterMode === "THERMAL") {
+          ctx.filter = "grayscale(100%) contrast(180%) brightness(110%)";
+        } else if (filterMode === "ENHANCED") {
+          ctx.filter = "contrast(130%) brightness(105%) saturate(105%)";
+        } else {
+          ctx.filter = "none";
+        }
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.95);
       }
     } else {
-      // Fallback generator for simulation mode (e.g. desktop environment without physical camera attached)
+      // Fallback generator for simulation mode
       const canvas = document.createElement("canvas");
       canvas.width = 600;
       canvas.height = 900;
@@ -104,7 +134,7 @@ export default function CameraScannerModal({
         ctx.font = "bold 24px monospace";
         ctx.fillText("JEJAKU SUPERMARKET KLCC", 120, 80);
         ctx.font = "16px monospace";
-        ctx.fillText("DATE: 2026-07-24   TIME: 14:30", 120, 120);
+        ctx.fillText("DATE: 2026-07-25   TIME: 14:30", 120, 120);
         ctx.fillText("---------------------------------", 120, 150);
         ctx.fillText("ORGANIC MILK 2L      x1  RM 14.50", 120, 190);
         ctx.fillText("WHOLE WHEAT BREAD    x2  RM 11.00", 120, 230);
@@ -117,7 +147,7 @@ export default function CameraScannerModal({
         ctx.fillText("TOTAL PAID:              RM 87.34", 120, 480);
         ctx.font = "14px monospace";
         ctx.fillText("THANK YOU FOR SHOPPING WITH US!", 120, 540);
-        dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.95);
       }
     }
 
@@ -384,54 +414,133 @@ export default function CameraScannerModal({
             />
           )}
         </div>
-
-        {/* FOOTER ACTIONS */}
+        {/* FOOTER ACTIONS & OPTICAL CONTROLS */}
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
+            flexDirection: "column",
+            gap: "10px",
             padding: "14px 18px",
             backgroundColor: "var(--surface-raised)",
             borderTop: "1px solid var(--border-visible)",
           }}
         >
-          <span
-            style={{
-              fontFamily: "var(--font-data)",
-              fontSize: "10px",
-              color: "var(--text-secondary)",
-            }}
-          >
-            ALIGN RECEIPT BOUNDS WITHIN GREEN RETICLE
-          </span>
+          {/* OPTICAL PRE-PROCESSING FILTER TOGGLES */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <span style={{ fontFamily: "var(--font-data)", fontSize: "9px", color: "var(--text-disabled)", letterSpacing: "0.06em" }}>
+                AI OPTICAL PRESET:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFilterMode("ENHANCED")}
+                style={{
+                  backgroundColor: filterMode === "ENHANCED" ? "var(--text-display)" : "var(--surface)",
+                  color: filterMode === "ENHANCED" ? "var(--black)" : "var(--text-primary)",
+                  border: "1px solid var(--border-visible)",
+                  fontFamily: "var(--font-data)",
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                [ AUTO ENHANCE ]
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("THERMAL")}
+                style={{
+                  backgroundColor: filterMode === "THERMAL" ? "var(--orange)" : "var(--surface)",
+                  color: filterMode === "THERMAL" ? "var(--black)" : "var(--text-primary)",
+                  border: "1px solid var(--border-visible)",
+                  fontFamily: "var(--font-data)",
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                [ THERMAL B&amp;W ]
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("ORIGINAL")}
+                style={{
+                  backgroundColor: filterMode === "ORIGINAL" ? "var(--surface)" : "transparent",
+                  color: filterMode === "ORIGINAL" ? "var(--text-display)" : "var(--text-disabled)",
+                  border: "1px solid var(--border-visible)",
+                  fontFamily: "var(--font-data)",
+                  fontSize: "9px",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                [ ORIGINAL ]
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleCapture}
-            disabled={isCapturing}
-            style={{
-              backgroundColor: "var(--text-display)",
-              color: "var(--black)",
-              border: "none",
-              borderRadius: "8px",
-              padding: "8px 18px",
-              fontFamily: "var(--font-data)",
-              fontSize: "11px",
-              fontWeight: "700",
-              letterSpacing: "0.06em",
-              cursor: isCapturing ? "wait" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            <span>{isCapturing ? "[ CAPTURING... ]" : "[ CAPTURE & OCR SCAN ]"}</span>
-          </button>
+            <button
+              type="button"
+              onClick={toggleTorch}
+              style={{
+                backgroundColor: isTorchOn ? "var(--warning)" : "var(--surface)",
+                color: isTorchOn ? "var(--black)" : "var(--text-primary)",
+                border: "1px solid var(--border-visible)",
+                fontFamily: "var(--font-data)",
+                fontSize: "9px",
+                fontWeight: "700",
+                padding: "3px 8px",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              [ 🔦 TORCH {isTorchOn ? "ON" : "OFF"} ]
+            </button>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-data)",
+                fontSize: "10px",
+                color: "var(--text-secondary)",
+              }}
+            >
+              ALIGN RECEIPT BOUNDS WITHIN GREEN RETICLE
+            </span>
+
+            <button
+              type="button"
+              onClick={handleCapture}
+              disabled={isCapturing}
+              style={{
+                backgroundColor: "var(--text-display)",
+                color: "var(--black)",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 20px",
+                fontFamily: "var(--font-data)",
+                fontSize: "11px",
+                fontWeight: "700",
+                letterSpacing: "0.06em",
+                cursor: isCapturing ? "wait" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                opacity: isCapturing ? 0.7 : 1,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <span>{isCapturing ? "[ ANALYZING OCR... ]" : "[ CAPTURE SNAPSHOT ]"}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

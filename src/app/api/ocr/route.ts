@@ -25,38 +25,42 @@ export async function POST(req: NextRequest) {
       ? imageBase64
       : `data:image/jpeg;base64,${imageBase64}`;
 
-    const prompt = `System: You are a high-precision optical receipt parser. Do NOT perform any chain-of-thought or reasoning text. Respond ONLY with a JSON codeblock containing the extracted receipt telemetry.
+    const prompt = `System: You are an ultra-high precision optical receipt parser for commercial receipts, thermal paper slips, and invoices.
+Do NOT output any reasoning, chain-of-thought, or text outside the JSON code block. Output ONLY valid JSON inside \`\`\`json ... \`\`\`.
 
-CRITICAL INSTRUCTIONS:
-- 'merchant': Store/vendor name in uppercase.
-- 'date': YYYY-MM-DD format.
-- 'subtotal': Total before tax/rounding.
-- 'tax': Tax or SST amount (0.00 if none).
-- 'total': Final net total amount paid.
-- 'items': Array of extracted line items. Each item must have:
-  - 'description': Clean item name.
-  - 'qty': Quantity purchased (integer).
-  - 'price': Total price for this line item (e.g. if 2 items at 4.65 each, price is 9.30).
+CRITICAL PARSING RULES:
+- 'merchant': Full store/vendor name in uppercase (e.g. "99 SPEED MART SDN BHD", "STARBUCKS COFFEE", "SHELL").
+- 'date': Date in YYYY-MM-DD format. If ambiguous, infer year 2026.
+- 'category': Categorize as one of: "business", "tax", "household", "warranties", "medical".
+- 'subtotal': Amount before tax/SST or discounts.
+- 'tax': Tax or SST (6%/8%) amount paid.
+- 'total': Final net total amount paid (e.g. MYR / USD total).
+- 'items': Array of extracted product line items. Each line item MUST contain:
+  - 'description': Clean item description in uppercase.
+  - 'qty': Purchased quantity (number, default 1).
+  - 'price': Total price for this line item (number).
 
 \`\`\`json
 {
   "merchant": "99 SPEED MART SDN. BHD.",
-  "date": "2026-07-24",
+  "date": "2026-07-25",
   "category": "business",
   "subtotal": 28.45,
   "tax": 0.00,
   "total": 28.45,
   "items": [
-    { "description": "DUTCH LADY TEALIVE SIGNATUR", "qty": 1, "price": 2.60 },
-    { "description": "DUTCH LADY TEALIVE SIG TEH", "qty": 1, "price": 2.60 },
-    { "description": "PANADOL EXTRA 2*6BILI (BOX)", "qty": 1, "price": 13.95 },
-    { "description": "PANAFLEX HOT PATCH 8CM*6CM", "qty": 2, "price": 9.30 }
+    { "description": "DUTCH LADY MILK 1L", "qty": 1, "price": 7.50 },
+    { "description": "PANADOL EXTRA (BOX)", "qty": 1, "price": 13.95 },
+    { "description": "PLASTIC BAG", "qty": 1, "price": 0.20 }
   ],
-  "rawTextStream": "RAW RECEIPT LINES HERE"
+  "rawTextStream": "FULL OCR STREAM LINES"
 }
 \`\`\``;
 
+    // Dual/Triple Vision Model Fallback Chain (100% Free on Groq)
     const visionModels = [
+      "llama-3.2-11b-vision-preview",
+      "llama-3.2-90b-vision-preview",
       "qwen/qwen3.6-27b",
     ];
 
