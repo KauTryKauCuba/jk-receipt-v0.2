@@ -164,13 +164,13 @@ export default function DashboardPage() {
 
       setScanLogs((prev) => [...prev, "[GROQ AI] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
 
-      // Downscale high-res camera captures (e.g. 12MB 4K photos) to max 1280px width for sub-second API delivery
+      // 10x Token Optimizer: Downscale to max 480px with grayscale enhancement for ~200 tokens/scan (1,000 scans/day limit)
       const compressedImage = await new Promise<string>((resolve) => {
         const img = new Image();
         img.onload = () => {
           let w = img.width;
           let h = img.height;
-          const maxDim = 1280;
+          const maxDim = 480;
           if (w > maxDim || h > maxDim) {
             if (w > h) {
               h = Math.round((h * maxDim) / w);
@@ -185,8 +185,9 @@ export default function DashboardPage() {
           canvas.height = h;
           const ctx = canvas.getContext("2d");
           if (ctx) {
+            ctx.filter = "grayscale(100%) contrast(120%)";
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL("image/jpeg", 0.85));
+            resolve(canvas.toDataURL("image/jpeg", 0.60));
           } else {
             resolve(base64DataUrl);
           }
