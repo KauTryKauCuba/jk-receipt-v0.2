@@ -1409,7 +1409,7 @@ export default function DashboardPage() {
                         }}
                       >
                         <option value="gemini">⚡ Google Gemini Flash (Cloud AI) [DEFAULT]</option>
-                        <option value="groq">🚀 Groq Llama 3.2 Vision (Cloud AI)</option>
+                        <option value="groq">🚀 Groq Qwen 3.6-27B (Cloud AI)</option>
                         <option value="auto">🤖 Smart Auto Cloud Hybrid</option>
                         <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
                       </select>

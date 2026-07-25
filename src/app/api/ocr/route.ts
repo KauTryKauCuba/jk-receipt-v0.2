@@ -379,7 +379,12 @@ async function runGroq(
     return { content: "", engine: "Groq Vision AI", error: "GROQ_API_KEY environment variable not configured" };
   }
 
-  const visionModels = ["llama-3.2-11b-vision-preview", "meta-llama/llama-3.2-11b-vision-instruct"];
+  const visionModels = [
+    "qwen/qwen3.6-27b",
+    "qwen3.6-27b",
+    "llama-3.2-11b-vision-preview",
+    "meta-llama/llama-3.2-11b-vision-instruct",
+  ];
   let lastErr = "";
 
   for (const model of visionModels) {
