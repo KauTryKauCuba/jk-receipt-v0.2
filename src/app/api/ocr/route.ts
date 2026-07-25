@@ -281,10 +281,13 @@ function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
 // Helper to get candidate Ollama URLs for Linux Docker / VPS compatibility
 function getOllamaHostCandidates(): string[] {
   const envHost = process.env.OLLAMA_HOST;
-  const candidates: string[] = [];
-  if (envHost) candidates.push(envHost);
-  candidates.push("http://host.docker.internal:11434");
-  candidates.push("http://172.17.0.1:11434");
+  const candidates: string[] = [
+    "http://172.17.0.1:11434",
+    "http://host.docker.internal:11434",
+  ];
+  if (envHost && !envHost.includes("127.0.0.1") && !envHost.includes("localhost")) {
+    candidates.unshift(envHost);
+  }
   candidates.push("http://127.0.0.1:11434");
   candidates.push("http://localhost:11434");
   return Array.from(new Set(candidates));
@@ -296,15 +299,16 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
 
   for (const host of hostCandidates) {
     try {
-      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      const tagsRes = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(8000) });
       if (tagsRes.ok) {
         const tagsData = await tagsRes.json();
         const availableModels: Array<{ name: string }> = tagsData.models || [];
         const modelNames = availableModels.map((m) => m.name);
 
         // Check if requested model exists
-        if (modelNames.some((n) => n.startsWith(requestedModel) || n.includes(requestedModel))) {
-          return { model: requestedModel, workingHost: host };
+        const exactMatch = modelNames.find((n) => n === requestedModel || n.startsWith(requestedModel) || n.includes(requestedModel));
+        if (exactMatch) {
+          return { model: exactMatch, workingHost: host };
         }
 
         // Look for known high-performance vision models installed on host
@@ -327,7 +331,7 @@ async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: str
     }
   }
 
-  return { model: requestedModel, workingHost: ollamaHost };
+  return { model: requestedModel, workingHost: "http://172.17.0.1:11434" };
 }
 
 async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {

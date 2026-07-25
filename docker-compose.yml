@@ -12,8 +12,8 @@ services:
     environment:
       - PORT=3000
       - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llama3.2-vision}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://172.17.0.1:11434}
+      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llama3.2-vision:latest}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
