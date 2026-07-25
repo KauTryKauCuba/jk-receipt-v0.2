@@ -15,6 +15,10 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llava:7b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - db
 
