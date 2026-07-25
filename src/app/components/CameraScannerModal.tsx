@@ -13,7 +13,7 @@ export default function CameraScannerModal({
   isOpen,
   onClose,
   onCapture,
-  defaultEngine = "ollama",
+  defaultEngine = "gemini",
 }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -434,7 +434,9 @@ export default function CameraScannerModal({
                 outline: "none",
               }}
             >
-              <option value="ollama">💎 Garnet-OCR-3B-0422-GGUF:Q4_K_M (Local VPS AI) [DEFAULT]</option>
+              <option value="gemini">⚡ Google Gemini Flash (Cloud AI) [DEFAULT]</option>
+              <option value="groq">🚀 Groq Llama 3.2 Vision (Cloud AI)</option>
+              <option value="auto">🤖 Smart Auto Cloud Hybrid</option>
               <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
             </select>
           </div>

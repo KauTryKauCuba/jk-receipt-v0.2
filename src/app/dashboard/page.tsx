@@ -91,7 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [selectedOcrEngine, setSelectedOcrEngine] = useState("ollama");
+  const [selectedOcrEngine, setSelectedOcrEngine] = useState("gemini");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -1408,7 +1408,9 @@ export default function DashboardPage() {
                           outline: "none",
                         }}
                       >
-                        <option value="ollama">💎 Garnet-OCR-3B-0422-GGUF:Q4_K_M (Local VPS AI) [DEFAULT]</option>
+                        <option value="gemini">⚡ Google Gemini Flash (Cloud AI) [DEFAULT]</option>
+                        <option value="groq">🚀 Groq Llama 3.2 Vision (Cloud AI)</option>
+                        <option value="auto">🤖 Smart Auto Cloud Hybrid</option>
                         <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
                       </select>
                     </div>

@@ -599,7 +599,7 @@ Extract all text precisely. Output JSON matching this schema:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { imageBase64, preferredEngine = "ollama" } = body;
+    const { imageBase64, preferredEngine = "gemini" } = body;
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json(
@@ -632,19 +632,21 @@ Rules:
 4. "items" array must contain individual purchased items with price and qty.
 5. Return valid JSON ONLY without markdown wrapping or conversational text.`;
 
-    const engineKey = String(preferredEngine || "ollama").toLowerCase();
+    const engineKey = String(preferredEngine || "gemini").toLowerCase();
     let ocrResult: { content: string; engine: string; error?: string } = { content: "", engine: "" };
 
-    if (engineKey === "ollama" || engineKey === "auto" || engineKey === "local") {
-      ocrResult = await runOllama(prompt, base64DataOnly);
-    } else if (engineKey === "heuristics") {
-      ocrResult = { content: "", engine: "Local Regex Heuristics Engine" };
-    } else if (engineKey === "gemini") {
+    if (engineKey === "gemini") {
       ocrResult = await runGemini(prompt, base64DataOnly, mimeType);
     } else if (engineKey === "groq") {
       ocrResult = await runGroq(prompt, base64DataOnly, mimeType);
+    } else if (engineKey === "heuristics") {
+      ocrResult = { content: "", engine: "Local Regex Heuristics Engine" };
     } else {
-      ocrResult = await runOllama(prompt, base64DataOnly);
+      // "auto" Smart Cloud AI Cascade: Gemini Flash -> Groq Vision -> Heuristics Fallback
+      ocrResult = await runGemini(prompt, base64DataOnly, mimeType);
+      if (!ocrResult.content) {
+        ocrResult = await runGroq(prompt, base64DataOnly, mimeType);
+      }
     }
 
     const contentString = ocrResult.content;
