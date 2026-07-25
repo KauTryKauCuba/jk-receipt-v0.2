@@ -13,7 +13,7 @@ export default function CameraScannerModal({
   isOpen,
   onClose,
   onCapture,
-  defaultEngine = "auto",
+  defaultEngine = "ollama",
 }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -434,10 +434,7 @@ export default function CameraScannerModal({
                 outline: "none",
               }}
             >
-              <option value="auto">✨ Auto (Smart Fallback)</option>
-              <option value="gemini">⚡ Gemini 2.0 Flash (Free)</option>
-              <option value="groq">☁️ Groq Cloud (Qwen 3.6)</option>
-              <option value="ollama">💻 Local Ollama (Llava 7b)</option>
+              <option value="ollama">💻 Local Ollama AI (Llama 3.2 Vision)</option>
             </select>
           </div>
 

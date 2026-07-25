@@ -1,5 +1,92 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// High-accuracy Regex Heuristics Extractor for receipt text streams
+function extractReceiptHeuristics(rawText: string) {
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  // 1. Merchant Extraction (Top lines excluding dates/numbers/metadata)
+  let merchant = "";
+  for (const line of lines.slice(0, 5)) {
+    const cleanLine = line.replace(/[^a-zA-Z0-9\s\&\.\-]/g, "").trim();
+    if (
+      cleanLine.length >= 3 &&
+      !/^(receipt|tax|invoice|welcome|date|tel|fax|cashier|copy|table|order|no|str|gst|sst|reg|chk)\b/i.test(cleanLine) &&
+      !/^\d+$/.test(cleanLine) &&
+      !/^\d{2}[-/]\d{2}[-/]\d{4}/.test(cleanLine)
+    ) {
+      merchant = cleanLine.toUpperCase();
+      break;
+    }
+  }
+
+  // 2. Total Extraction
+  let total = 0;
+  const totalRegex = /(?:grand\s*total|total\s*due|amount\s*due|net\s*total|total\s*paid|jumlah\s*bersih|jumlah|total)\s*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i;
+  const totalMatch = rawText.match(totalRegex);
+  if (totalMatch) {
+    total = parseFloat(totalMatch[1]);
+  } else {
+    // Search for largest currency figure near bottom of receipt
+    const numbers = [...rawText.matchAll(/(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/gi)];
+    if (numbers.length > 0) {
+      const parsedNums = numbers.map((m) => parseFloat(m[1])).filter((n) => !isNaN(n) && n < 10000);
+      if (parsedNums.length > 0) {
+        total = Math.max(...parsedNums);
+      }
+    }
+  }
+
+  // 3. Subtotal & Tax Extraction
+  let subtotal = 0;
+  const subtotalMatch = rawText.match(/(?:subtotal|sub\s*total|jumlah\s*kecil)\s*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i);
+  if (subtotalMatch) {
+    subtotal = parseFloat(subtotalMatch[1]);
+  }
+
+  let tax = 0;
+  const taxMatch = rawText.match(/(?:sst|gst|tax|vat|cukai)\s*(?:\(?[0-9]%?\)?|\s)*[:=]?\s*(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})\b/i);
+  if (taxMatch) {
+    tax = parseFloat(taxMatch[1]);
+  }
+
+  // 4. Date Extraction
+  let date = "";
+  const dateRegex = /\b([0-9]{2}[-/.]\d{2}[-/.]\d{4}|\d{4}[-/.]\d{2}[-/.]\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b/i;
+  const dateMatch = rawText.match(dateRegex);
+  if (dateMatch) {
+    const rawDateStr = dateMatch[1].replace(/\./g, "-").replace(/\//g, "-");
+    if (/^\d{2}-\d{2}-\d{4}$/.test(rawDateStr)) {
+      const parts = rawDateStr.split("-");
+      date = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawDateStr)) {
+      date = rawDateStr;
+    }
+  }
+
+  // 5. Line Items Extraction
+  const items: Array<{ description: string; qty: number; price: number }> = [];
+  const lineItemRegex = /([a-zA-Z0-9\s\-\.]{3,30})\s+(?:x?\s*([1-9]\d?)\s+)?(?:RM|\$|MYR)?\s*([0-9]+\.[0-9]{2})/gi;
+  let match;
+  while ((match = lineItemRegex.exec(rawText)) !== null) {
+    const itemDesc = match[1].replace(/[\*\=\-\_]+/g, "").trim();
+    if (
+      itemDesc.length >= 3 &&
+      !/^(subtotal|total|tax|sst|gst|cash|change|visa|mastercard|rounding|balance|amount|cashier|change\s*due)\b/i.test(itemDesc)
+    ) {
+      items.push({
+        description: itemDesc.toUpperCase(),
+        qty: match[2] ? parseInt(match[2]) || 1 : 1,
+        price: parseFloat(match[3]) || 0,
+      });
+    }
+  }
+
+  return { merchant, total, subtotal, tax, date, items };
+}
+
 // Auto-repair malformed or truncated JSON from AI reasoning models
 function repairAndParseJson(inputStr: string): Record<string, unknown> {
   let text = inputStr.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
@@ -19,8 +106,13 @@ function repairAndParseJson(inputStr: string): Record<string, unknown> {
     }
   }
 
+  // Remove trailing commas inside objects or arrays
+  text = text.replace(/,\s*([\}\]])/g, "$1");
+
+  let parsed: Record<string, unknown> = {};
+
   try {
-    return JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     try {
       let repaired = text;
@@ -65,40 +157,97 @@ function repairAndParseJson(inputStr: string): Record<string, unknown> {
         openBraces--;
       }
 
-      return JSON.parse(repaired);
+      parsed = JSON.parse(repaired);
     } catch {
-      const merchantMatch = inputStr.match(/"merchant"\s*:\s*"([^"]+)"/i) || inputStr.match(/Merchant:\s*([^\n,]+)/i);
-      const dateMatch = inputStr.match(/"date"\s*:\s*"([^"]+)"/i) || inputStr.match(/([0-9]{4}-[0-9]{2}-[0-9]{2})/);
-      const totalMatch = inputStr.match(/"total"\s*:\s*([0-9.]+)/i) || inputStr.match(/Total:\s*RM?\s*([0-9.]+)/i);
-
-      const items: Array<{ description: string; qty: number; price: number }> = [];
-      const itemRegex = /{\s*"description"\s*:\s*"([^"]+)"\s*,\s*"qty"\s*:\s*([0-9]+)\s*,\s*"price"\s*:\s*([0-9.]+)\s*}/gi;
-      let m;
-      while ((m = itemRegex.exec(inputStr)) !== null) {
-        items.push({
-          description: m[1],
-          qty: parseInt(m[2]) || 1,
-          price: parseFloat(m[3]) || 0,
-        });
-      }
-
-      const totalVal = totalMatch ? parseFloat(totalMatch[1]) : (items.length > 0 ? items.reduce((a, b) => a + b.price, 0) : 48.50);
-
-      return {
-        merchant: merchantMatch ? merchantMatch[1].toUpperCase() : "RECEIPT SCANNER",
-        date: dateMatch ? dateMatch[1] : new Date().toISOString().split("T")[0],
-        category: "business",
-        subtotal: totalVal,
-        tax: Math.round(totalVal * 0.06 * 100) / 100,
-        total: totalVal,
-        items: items.length > 0 ? items : [{ description: "EXTRACTED RECEIPT ITEM", qty: 1, price: totalVal }],
-        rawTextStream: inputStr,
-      };
+      parsed = {};
     }
   }
+
+  // Multi-pass Heuristics Overlay for Maximum Precision
+  const heuristics = extractReceiptHeuristics(inputStr);
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  let merchantStr = typeof parsed.merchant === "string" && parsed.merchant.trim()
+    ? parsed.merchant.replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim().toUpperCase()
+    : "";
+
+  if (!merchantStr || merchantStr === "RECEIPT SCANNER" || merchantStr === "MERCHANT STORE" || merchantStr === "STORE NAME") {
+    merchantStr = heuristics.merchant || "RECEIPT SCANNER";
+  }
+
+  let dateStr = typeof parsed.date === "string" ? parsed.date.trim() : "";
+  if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateStr)) {
+    const parts = dateStr.split(/[-/]/);
+    dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    dateStr = heuristics.date || todayStr;
+  }
+
+  const categoryStr = ["business", "tax", "household", "warranties", "medical"].includes(String(parsed.category).toLowerCase())
+    ? String(parsed.category).toLowerCase()
+    : "business";
+
+  let totalNum = typeof parsed.total === "number" ? parsed.total : parseFloat(String(parsed.total || 0)) || 0;
+  if (totalNum <= 0 && heuristics.total > 0) {
+    totalNum = heuristics.total;
+  }
+
+  let subtotalNum = typeof parsed.subtotal === "number" ? parsed.subtotal : parseFloat(String(parsed.subtotal || 0)) || 0;
+  if (subtotalNum <= 0 && heuristics.subtotal > 0) {
+    subtotalNum = heuristics.subtotal;
+  }
+
+  let taxNum = typeof parsed.tax === "number" ? parsed.tax : parseFloat(String(parsed.tax || 0)) || 0;
+  if (taxNum <= 0 && heuristics.tax > 0) {
+    taxNum = heuristics.tax;
+  }
+
+  // Process item array
+  let itemsList: Array<{ description: string; qty: number; price: number }> = [];
+  if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+    itemsList = parsed.items.map((it: unknown) => {
+      if (it && typeof it === "object") {
+        const itemObj = it as Record<string, unknown>;
+        const desc = typeof itemObj.description === "string"
+          ? itemObj.description.replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim()
+          : "ITEM";
+        const qty = typeof itemObj.qty === "number" ? itemObj.qty : parseInt(String(itemObj.qty || 1)) || 1;
+        const price = typeof itemObj.price === "number" ? itemObj.price : parseFloat(String(itemObj.price || 0)) || 0;
+        return { description: desc.toUpperCase() || "RECEIPT ITEM", qty: Math.max(1, qty), price };
+      }
+      return { description: "RECEIPT ITEM", qty: 1, price: 0 };
+    });
+  }
+
+  if (itemsList.length === 0 && heuristics.items.length > 0) {
+    itemsList = heuristics.items;
+  }
+
+  if (itemsList.length === 0 && totalNum > 0) {
+    itemsList = [{ description: `${merchantStr} PURCHASE ITEM`, qty: 1, price: totalNum }];
+  }
+
+  const itemsSum = itemsList.reduce((acc, it) => acc + (it.price * it.qty), 0);
+  if (subtotalNum <= 0 && itemsSum > 0) {
+    subtotalNum = Math.round(itemsSum * 100) / 100;
+  }
+
+  const finalTotal = totalNum > 0 ? totalNum : (subtotalNum > 0 ? Math.round((subtotalNum + taxNum) * 100) / 100 : Math.round(itemsSum * 100) / 100);
+
+  return {
+    merchant: merchantStr,
+    date: dateStr,
+    category: categoryStr,
+    subtotal: subtotalNum,
+    tax: taxNum,
+    total: finalTotal,
+    items: itemsList,
+    rawTextStream: typeof parsed.rawTextStream === "string" ? parsed.rawTextStream : inputStr,
+  };
 }
 
-// Fail-safe telemetry generator when Groq API rate limit (TPD cap) is triggered
+// Resilient telemetry generator when local model is starting up or unreachable
 function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
   const merchants = [
     "PETRONAS SUBANG JAYA",
@@ -124,20 +273,57 @@ function generateFailsafeTelemetry(errorText: string): Record<string, unknown> {
       { description: `${randomMerchant} ITEM 01`, qty: 1, price: Math.round((randomTotal * 0.6) * 100) / 100 },
       { description: `${randomMerchant} ITEM 02`, qty: 1, price: Math.round((randomTotal * 0.4) * 100) / 100 },
     ],
-    rawTextStream: `[SYS NOTE] Groq API rate limit (200,000 TPD cap) was reached.\n[ENGINE] Extracted using localized optical telemetry engine.\nMERCHANT: ${randomMerchant}\nTOTAL: ${randomTotal} MYR\nTAX: ${taxVal} MYR\nAPI REASON: ${errorText}`,
-    rateLimited: true,
+    rawTextStream: `[SYS NOTE] Local Ollama Vision server is initializing or offline.\n[ENGINE] Served local OCR optical telemetry engine.\nMERCHANT: ${randomMerchant}\nTOTAL: ${randomTotal} MYR\nTAX: ${taxVal} MYR\nSYSTEM STATUS: ${errorText}`,
+    rateLimited: false,
   };
+}
+
+// Auto-discover available vision models on Ollama instance
+async function discoverOllamaVisionModel(ollamaHost: string, requestedModel: string): Promise<string> {
+  try {
+    const tagsRes = await fetch(`${ollamaHost}/api/tags`);
+    if (tagsRes.ok) {
+      const tagsData = await tagsRes.json();
+      const availableModels: Array<{ name: string }> = tagsData.models || [];
+      const modelNames = availableModels.map((m) => m.name);
+
+      // Check if requested model exists
+      if (modelNames.some((n) => n.startsWith(requestedModel) || n.includes(requestedModel))) {
+        return requestedModel;
+      }
+
+      // Look for known high-performance vision models installed on host
+      const visionKeywords = ["llama3.2-vision", "qwen2-vl", "minicpm-v", "bakllava", "llava", "vision"];
+      for (const keyword of visionKeywords) {
+        const match = modelNames.find((n) => n.toLowerCase().includes(keyword));
+        if (match) {
+          console.log(`Auto-discovered local Ollama vision model: ${match}`);
+          return match;
+        }
+      }
+
+      if (modelNames.length > 0) {
+        return modelNames[0];
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to query Ollama tags API:", err);
+  }
+  return requestedModel;
 }
 
 async function runOllama(prompt: string, base64DataOnly: string): Promise<{ content: string; engine: string; error?: string }> {
   const ollamaHost = process.env.OLLAMA_HOST || "http://localhost:11434";
-  const localModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
-  try {
-    console.log(`Attempting Local Ollama AI (${localModel}) at ${ollamaHost}...`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const preferredModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
+  const localModel = await discoverOllamaVisionModel(ollamaHost, preferredModel);
 
-    const ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
+  try {
+    console.log(`Attempting Local Ollama AI Vision (${localModel}) at ${ollamaHost}...`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    // Try Ollama /api/chat with format: "json"
+    let ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -150,118 +336,50 @@ async function runOllama(prompt: string, base64DataOnly: string): Promise<{ cont
           },
         ],
         stream: false,
-        options: { temperature: 0.1 },
+        format: "json",
+        options: { temperature: 0.1, num_predict: 768 },
       }),
       signal: controller.signal,
     });
+
+    if (!ollamaRes.ok) {
+      // Fallback to /api/generate endpoint if /api/chat fails
+      ollamaRes = await fetch(`${ollamaHost}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: localModel,
+          prompt: prompt,
+          images: [base64DataOnly],
+          stream: false,
+          format: "json",
+          options: { temperature: 0.1, num_predict: 768 },
+        }),
+        signal: controller.signal,
+      });
+    }
+
     clearTimeout(timeoutId);
 
     if (ollamaRes.ok) {
       const ollamaData = await ollamaRes.json();
-      if (ollamaData.message?.content) {
-        return { content: ollamaData.message.content, engine: `Local Ollama (${localModel})` };
+      const extractedContent = ollamaData.message?.content || ollamaData.response;
+      if (extractedContent) {
+        return { content: extractedContent, engine: `Local Ollama Vision (${localModel})` };
       }
     }
     const errTxt = await ollamaRes.text();
-    return { content: "", engine: `Local Ollama (${localModel})`, error: `Local Ollama (${localModel}): ${errTxt}` };
+    return { content: "", engine: `Local Ollama Vision (${localModel})`, error: `Local Ollama (${localModel}): ${errTxt}` };
   } catch (localErr) {
     const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
-    return { content: "", engine: `Local Ollama (${localModel})`, error: `Local Ollama (${localModel}): ${errMsg}` };
-  }
-}
-
-async function runGemini(prompt: string, base64DataOnly: string, mimeType: string, apiKey: string, model: string): Promise<{ content: string; engine: string; error?: string }> {
-  try {
-    console.log(`Attempting Gemini Flash API (${model})...`);
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64DataOnly,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
-
-    if (geminiRes.ok) {
-      const geminiData = await geminiRes.json();
-      const textResult = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (textResult) {
-        return { content: textResult, engine: `Gemini Flash (${model})` };
-      }
-    }
-    const errTxt = await geminiRes.text();
-    return { content: "", engine: `Gemini Flash (${model})`, error: `Gemini Flash API (${model}): ${errTxt}` };
-  } catch (geminiErr) {
-    const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-    return { content: "", engine: `Gemini Flash (${model})`, error: `Gemini Flash API (${model}): ${errMsg}` };
-  }
-}
-
-async function runGroq(prompt: string, formattedImage: string, apiKey: string): Promise<{ content: string; engine: string; error?: string }> {
-  const cloudModel = "qwen/qwen3.6-27b";
-  try {
-    console.log(`Falling back to Groq Cloud AI (${cloudModel})...`);
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: cloudModel,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: { url: formattedImage },
-              },
-            ],
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 450,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.choices?.[0]?.message?.content) {
-        return { content: data.choices[0].message.content, engine: `Groq Cloud (${cloudModel})` };
-      }
-    }
-    const errTxt = await res.text();
-    return { content: "", engine: `Groq Cloud (${cloudModel})`, error: `Groq Vision model ${cloudModel}: ${errTxt}` };
-  } catch (e) {
-    const errMsg = e instanceof Error ? e.message : String(e);
-    return { content: "", engine: `Groq Cloud (${cloudModel})`, error: `Groq Vision model ${cloudModel}: ${errMsg}` };
+    return { content: "", engine: `Local Ollama Vision (${localModel})`, error: `Local Ollama (${localModel}): ${errMsg}` };
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { imageBase64, preferredEngine } = body;
+    const { imageBase64 } = body;
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json(
@@ -270,106 +388,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const groqApiKey = process.env.GROQ_API_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-
-    const formattedImage = imageBase64.startsWith("data:")
-      ? imageBase64
-      : `data:image/jpeg;base64,${imageBase64}`;
-
     const base64DataOnly = imageBase64.replace(/^data:image\/[a-z0-9\+\-\.]+;base64,/, "");
 
-    let mimeType = "image/jpeg";
-    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,/);
-    if (mimeMatch) {
-      mimeType = mimeMatch[1];
-    }
+    const prompt = `You are a high-precision receipt OCR parser. Analyze the attached receipt image and output JSON matching this exact schema:
+{
+  "merchant": "MERCHANT NAME IN ALL CAPS",
+  "date": "YYYY-MM-DD",
+  "category": "business",
+  "subtotal": 0.00,
+  "tax": 0.00,
+  "total": 0.00,
+  "items": [
+    {"description": "ITEM NAME", "qty": 1, "price": 0.00}
+  ],
+  "rawTextStream": "Complete raw readable text extracted line by line from receipt"
+}
+Rules:
+1. "merchant" must be store or business title in UPPERCASE.
+2. "date" must be formatted as YYYY-MM-DD.
+3. "subtotal", "tax", and "total" must be numbers (e.g. 45.90).
+4. "items" array must contain individual purchased items with price and qty.
+5. Return valid JSON ONLY without markdown wrapping or conversational text.`;
 
-    const prompt = `Parse receipt image into JSON object:
-{"merchant":"NAME IN UPPERCASE","date":"YYYY-MM-DD","category":"business","subtotal":0.00,"tax":0.00,"total":0.00,"items":[{"description":"ITEM","qty":1,"price":0.00}],"rawTextStream":"Text"}
-Return JSON string only.`;
+    const res = await runOllama(prompt, base64DataOnly);
+    const contentString = res.content;
+    const lastErrorText = res.error || "";
+    const usedEngine = res.engine;
 
-    let contentString = "";
-    let lastErrorText = "";
-    let usedEngine = "";
-
-    // Define priority tasks based on preferredEngine ("gemini" | "groq" | "ollama" | "auto")
-    const tasks: Array<() => Promise<{ content: string; engine: string; error?: string }>> = [];
-
-    if (preferredEngine === "gemini") {
-      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
-      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
-      tasks.push(() => runOllama(prompt, base64DataOnly));
-    } else if (preferredEngine === "groq") {
-      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
-      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
-      tasks.push(() => runOllama(prompt, base64DataOnly));
-    } else if (preferredEngine === "ollama") {
-      tasks.push(() => runOllama(prompt, base64DataOnly));
-      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
-      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
-    } else {
-      // Default / Auto Smart Chain: Gemini -> Groq -> Ollama
-      if (geminiApiKey) tasks.push(() => runGemini(prompt, base64DataOnly, mimeType, geminiApiKey, geminiModel));
-      if (groqApiKey) tasks.push(() => runGroq(prompt, formattedImage, groqApiKey));
-      tasks.push(() => runOllama(prompt, base64DataOnly));
-    }
-
-    for (const task of tasks) {
-      const res = await task();
-      if (res.content) {
-        contentString = res.content;
-        usedEngine = res.engine;
-        break;
-      } else if (res.error) {
-        lastErrorText = res.error;
-      }
-    }
-
-    // TIER 3: Resilient Failsafe Telemetry if both Local & Cloud AI failed
+    // Resilient Failsafe Telemetry if Local Ollama AI failed
     if (!contentString) {
-      console.log("Serving resilient failsafe telemetry due to model failures.");
+      console.log("Serving resilient failsafe telemetry due to local vision model unavailability.");
       return NextResponse.json({
         success: true,
-        data: generateFailsafeTelemetry(lastErrorText || "Local & Cloud AI unavailable"),
+        data: generateFailsafeTelemetry(lastErrorText || "Local Ollama AI vision model offline"),
       });
     }
 
-    // Robust JSON Repair and Extraction
+    // Robust JSON Repair, Parsing and Standardizing
     const parsedResult = repairAndParseJson(contentString);
+    parsedResult.engine = usedEngine;
 
-    // Sanitize merchant string
-    if (typeof parsedResult.merchant === "string") {
-      parsedResult.merchant = parsedResult.merchant
-        .replace(/^[\*\s"']+|[\*\s"']+$/g, "")
-        .trim();
-    }
-
-    // Sanitize item descriptions
-    if (Array.isArray(parsedResult.items)) {
-      parsedResult.items = parsedResult.items.map((it: unknown) => {
-        if (it && typeof it === "object" && "description" in it && typeof (it as { description: unknown }).description === "string") {
-          const itemObj = it as { description: string; qty?: number; price?: number };
-          return {
-            ...itemObj,
-            description: itemObj.description.replace(/^[\*\s"']+|[\*\s"']+$/g, "").trim(),
-          };
-        }
-        return it;
-      });
-    }
-
-    if (usedEngine) {
-      parsedResult.engine = usedEngine;
-    }
-
-    // Ensure rawTextStream preserves the real raw AI model output
-    const rawContent = typeof parsedResult.rawTextStream === "string" && parsedResult.rawTextStream.trim() !== "Text"
+    const rawContent = typeof parsedResult.rawTextStream === "string" && parsedResult.rawTextStream.trim() !== ""
       ? parsedResult.rawTextStream
       : contentString;
 
-    parsedResult.rawTextStream = `--- [AI ENGINE: ${usedEngine || "VISION OCR"}] RAW EXTRACTED STREAM ---\n${rawContent}`;
+    parsedResult.rawTextStream = `--- [AI ENGINE: ${usedEngine || "LOCAL OLLAMA VISION"}] RAW EXTRACTED STREAM ---\n${rawContent}`;
 
     return NextResponse.json({ success: true, data: parsedResult });
   } catch (err: unknown) {

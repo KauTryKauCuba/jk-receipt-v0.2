@@ -11,14 +11,9 @@ services:
       - .env
     environment:
       - PORT=3000
-      - HOSTNAME=0.0.0.0
-      - NODE_ENV=production
       - DATABASE_URL=postgres://jejaku:jejaku_password@db:5432/jejaku_db
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llava:7b}
+      - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-llama3.2-vision}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

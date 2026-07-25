@@ -91,7 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [selectedOcrEngine, setSelectedOcrEngine] = useState("auto");
+  const [selectedOcrEngine, setSelectedOcrEngine] = useState("ollama");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -166,13 +166,13 @@ export default function DashboardPage() {
 
       setScanLogs((prev) => [...prev, "[AI VISION] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
 
-      // 10x Token Optimizer: Downscale to max 480px with grayscale enhancement for ~200 tokens/scan (1,000 scans/day limit)
+      // High-Definition Image Preprocessing: Max 1024px buffer for optimal local vision AI text recognition
       const compressedImage = await new Promise<string>((resolve) => {
         const img = new Image();
         img.onload = () => {
           let w = img.width;
           let h = img.height;
-          const maxDim = 480;
+          const maxDim = 1024;
           if (w > maxDim || h > maxDim) {
             if (w > h) {
               h = Math.round((h * maxDim) / w);
@@ -187,9 +187,10 @@ export default function DashboardPage() {
           canvas.height = h;
           const ctx = canvas.getContext("2d");
           if (ctx) {
-            ctx.filter = "grayscale(100%) contrast(120%)";
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL("image/jpeg", 0.60));
+            resolve(canvas.toDataURL("image/jpeg", 0.85));
           } else {
             resolve(base64DataUrl);
           }
@@ -1407,10 +1408,7 @@ export default function DashboardPage() {
                           outline: "none",
                         }}
                       >
-                        <option value="auto">✨ Auto (Smart Fallback)</option>
-                        <option value="gemini">⚡ Gemini 2.0 Flash (Free)</option>
-                        <option value="groq">☁️ Groq Cloud (Qwen 3.6)</option>
-                        <option value="ollama">💻 Local Ollama (Llava 7b)</option>
+                        <option value="ollama">💻 Local Ollama AI (Llama 3.2 Vision)</option>
                       </select>
                     </div>
 
