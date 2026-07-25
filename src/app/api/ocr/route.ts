@@ -152,69 +152,114 @@ export async function POST(req: NextRequest) {
       ? imageBase64
       : `data:image/jpeg;base64,${imageBase64}`;
 
+    const base64DataOnly = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+
     const prompt = `Parse receipt image into JSON object:
 {"merchant":"NAME IN UPPERCASE","date":"YYYY-MM-DD","category":"business","subtotal":0.00,"tax":0.00,"total":0.00,"items":[{"description":"ITEM","qty":1,"price":0.00}],"rawTextStream":"Text"}
 Return JSON string only.`;
 
-    const modelName = "qwen/qwen3.6-27b";
-    let response: Response | null = null;
+    let contentString = "";
     let lastErrorText = "";
+    let usedEngine = "";
+
+    // TIER 1: Try Local Ollama AI Server (llava:7b)
+    const ollamaHost = process.env.OLLAMA_HOST || "http://localhost:11434";
+    const localModel = process.env.LOCAL_VISION_MODEL || "llava:7b";
 
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      console.log(`Attempting Local Ollama AI (${localModel}) at ${ollamaHost}...`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second local timeout
+
+      const ollamaRes = await fetch(`${ollamaHost}/api/chat`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: modelName,
+          model: localModel,
           messages: [
             {
               role: "user",
-              content: [
-                { type: "text", text: prompt },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: formattedImage,
-                  },
-                },
-              ],
+              content: prompt,
+              images: [base64DataOnly],
             },
           ],
-          temperature: 0.1,
-          max_tokens: 450,
+          stream: false,
+          options: { temperature: 0.1 },
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
-      if (res.ok) {
-        response = res;
+      if (ollamaRes.ok) {
+        const ollamaData = await ollamaRes.json();
+        if (ollamaData.message?.content) {
+          contentString = ollamaData.message.content;
+          usedEngine = `Local Ollama (${localModel})`;
+          console.log(`Local Ollama AI (${localModel}) successfully processed receipt.`);
+        }
       } else {
-        lastErrorText = await res.text();
-        console.warn(`Groq Vision model ${modelName} returned status ${res.status}: ${lastErrorText}`);
+        const errTxt = await ollamaRes.text();
+        console.warn(`Local Ollama (${localModel}) status ${ollamaRes.status}: ${errTxt}`);
+        lastErrorText = `Local Ollama (${localModel}): ${errTxt}`;
       }
-    } catch (e) {
-      console.warn(`Model ${modelName} fetch exception:`, e);
-      lastErrorText = e instanceof Error ? e.message : "Fetch exception";
+    } catch (localErr) {
+      const errMsg = localErr instanceof Error ? localErr.message : String(localErr);
+      console.warn(`Local Ollama (${localModel}) unavailable or timed out: ${errMsg}`);
+      lastErrorText = `Local Ollama (${localModel}): ${errMsg}`;
     }
 
-    // If Groq Vision returned Rate Limit 429 or API Error, use resilient fallback so camera scan NEVER breaks
-    if (!response || !response.ok) {
-      console.log("Serving resilient fallback telemetry due to Groq API rate limit cap.");
-      return NextResponse.json({
-        success: true,
-        data: generateFailsafeTelemetry(lastErrorText || "Groq Vision 429 Rate Limit"),
-      });
+    // TIER 2: Fallback to Cloud Groq Vision AI (qwen/qwen3.6-27b) if local failed
+    if (!contentString && apiKey) {
+      const cloudModel = "qwen/qwen3.6-27b";
+      try {
+        console.log(`Falling back to Groq Cloud AI (${cloudModel})...`);
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: cloudModel,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: { url: formattedImage },
+                  },
+                ],
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 450,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.choices?.[0]?.message?.content) {
+            contentString = data.choices[0].message.content;
+            usedEngine = `Groq Cloud (${cloudModel})`;
+          }
+        } else {
+          lastErrorText = await res.text();
+          console.warn(`Groq Vision model ${cloudModel} returned status ${res.status}: ${lastErrorText}`);
+        }
+      } catch (e) {
+        console.warn(`Cloud Groq model ${cloudModel} fetch exception:`, e);
+        lastErrorText = e instanceof Error ? e.message : "Groq fetch exception";
+      }
     }
 
-    const data = await response.json();
-    const contentString = data.choices?.[0]?.message?.content;
-
+    // TIER 3: Resilient Failsafe Telemetry if both Local & Cloud AI failed
     if (!contentString) {
+      console.log("Serving resilient failsafe telemetry due to model failures.");
       return NextResponse.json({
         success: true,
-        data: generateFailsafeTelemetry("No content string in Groq response"),
+        data: generateFailsafeTelemetry(lastErrorText || "Local & Cloud AI unavailable"),
       });
     }
 
@@ -240,6 +285,10 @@ Return JSON string only.`;
         }
         return it;
       });
+    }
+
+    if (usedEngine) {
+      parsedResult.engine = usedEngine;
     }
 
     return NextResponse.json({ success: true, data: parsedResult });
