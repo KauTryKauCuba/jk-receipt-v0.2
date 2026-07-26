@@ -409,8 +409,22 @@ async function runPaddleOCR(imageBase64: string): Promise<Record<string, unknown
   try {
     await writeFile(inputPath, imageBuffer);
 
-    // Python inline script invoking PaddleOCR engine
-    const pyScript = `import sys, json
+    // Python script with dynamic site-packages path discovery
+    const pyScript = `import sys, os, glob, site, json
+
+# Auto-add user site-packages paths for PaddleOCR
+user_paths = [
+    site.getusersitepackages() if hasattr(site, 'getusersitepackages') else '',
+    os.path.expanduser('~/.local/lib/python3.12/site-packages'),
+    os.path.expanduser('~/.local/lib/python3.11/site-packages'),
+    os.path.expanduser('~/.local/lib/python3.10/site-packages'),
+    '/home/muddassir/.local/lib/python3.12/site-packages'
+] + glob.glob(os.path.expanduser('~/.local/lib/python*/site-packages'))
+
+for p in user_paths:
+    if p and os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
 try:
     from paddleocr import PaddleOCR
     ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
@@ -426,13 +440,15 @@ try:
 except Exception as e:
     print(json.dumps({"success": False, "error": str(e)}))`;
 
-    const pyCmd = `python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+    const pythonBin = process.env.PADDLE_PYTHON_PATH || "python3";
+    const pyCmd = `${pythonBin} -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+    
     let stdout = "";
     try {
       stdout = await execPromise(pyCmd);
     } catch {
-      // Fallback: attempt running python via user local path if system python3 fails
-      const userPyCmd = `~/.local/bin/python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+      // Fallback: try explicitly calling python3 via user local bin path
+      const userPyCmd = `PYTHONPATH=$HOME/.local/lib/python3.12/site-packages python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
       stdout = await execPromise(userPyCmd);
     }
 
@@ -444,8 +460,9 @@ except Exception as e:
       } else {
         throw new Error(parsedPy.error || "PaddleOCR execution failed.");
       }
-    } catch {
-      extractedText = stdout;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`PaddleOCR Python Error: ${msg}`);
     }
 
     if (!extractedText.trim()) {
