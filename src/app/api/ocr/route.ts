@@ -9,9 +9,14 @@ import { randomUUID } from "crypto";
 // OCR ENGINE CONFIGURATION
 // ────────────────────────────────────────────────────────────────────────────────
 
+// Groq Cloud Vision
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+// Ollama Local Vision (garnet-ocr-3b, llama3.2-vision, llava, moondream)
+const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://172.17.0.1:11434";
+const OLLAMA_OCR_MODEL = process.env.LOCAL_VISION_MODEL || "garnet-ocr-3b";
 
 // Receipt-optimized system prompt for structured JSON extraction
 const RECEIPT_SYSTEM_PROMPT = `You are an expert receipt OCR parser. Analyze the receipt image and extract ALL information into valid JSON.
@@ -40,8 +45,60 @@ JSON SCHEMA:
   "rawTextStream": "Full raw text visible on the receipt"
 }`;
 
+// Simpler prompt for smaller Ollama models (garnet-ocr-3b, moondream)
+const OLLAMA_RECEIPT_PROMPT = `Read this receipt image carefully. Extract all text and return a JSON object with these fields:
+- "merchant": store/shop name
+- "date": date in YYYY-MM-DD format
+- "category": "business"
+- "subtotal": subtotal amount as number
+- "tax": tax/SST amount as number
+- "total": total amount as number
+- "items": array of {"description": "item name", "qty": quantity, "price": unit price}
+- "rawTextStream": all raw text from the receipt
+
+Return ONLY valid JSON. No explanation.`;
+
 // ────────────────────────────────────────────────────────────────────────────────
-// GROQ VISION ENGINE (Primary — qwen/qwen3.6-27b via Groq API)
+// HELPER: Parse JSON from AI model response (handles markdown fences, etc.)
+// ────────────────────────────────────────────────────────────────────────────────
+
+function parseModelJsonResponse(content: string, engineLabel: string): Record<string, unknown> {
+  // Strip markdown fences if present
+  const jsonStr = content
+    .replace(/^```json?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return { ...parsed, engine: engineLabel };
+  } catch {
+    // Attempt to extract any JSON object from the response
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return { ...parsed, engine: engineLabel };
+      } catch {
+        // Fall through
+      }
+    }
+    return {
+      merchant: "PARSE ERROR",
+      date: new Date().toISOString().split("T")[0],
+      category: "business",
+      subtotal: 0,
+      tax: 0,
+      total: 0,
+      items: [],
+      rawTextStream: content,
+      engine: `${engineLabel} (RAW)`,
+    };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// GROQ VISION ENGINE (Cloud — qwen/qwen3.6-27b via Groq API)
 // ────────────────────────────────────────────────────────────────────────────────
 
 async function runGroqVisionOCR(imageBase64: string): Promise<Record<string, unknown>> {
@@ -49,10 +106,7 @@ async function runGroqVisionOCR(imageBase64: string): Promise<Record<string, unk
     throw new Error("GROQ_API_KEY not configured. Set it in your .env file.");
   }
 
-  // Strip data URL prefix if present, keep only the base64 payload
   const base64Clean = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
-
-  // Detect MIME type from data URL or default to jpeg
   let mimeType = "image/jpeg";
   const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z]+);base64,/);
   if (mimeMatch) {
@@ -108,42 +162,61 @@ async function runGroqVisionOCR(imageBase64: string): Promise<Record<string, unk
     throw new Error("Groq API returned empty response content.");
   }
 
-  // Parse JSON from model response (strip markdown fences if present)
-  const jsonStr = content
-    .replace(/^```json?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-    return { ...parsed, engine: "GROQ QWEN 3.6-27B" };
-  } catch {
-    // If JSON parse fails, attempt to extract any JSON object from the response
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return { ...parsed, engine: "GROQ QWEN 3.6-27B" };
-      } catch {
-        // Return raw text as fallback
-      }
-    }
-    return {
-      merchant: "PARSE ERROR",
-      date: new Date().toISOString().split("T")[0],
-      category: "business",
-      subtotal: 0,
-      tax: 0,
-      total: 0,
-      items: [],
-      rawTextStream: content,
-      engine: "GROQ QWEN 3.6-27B (RAW)",
-    };
-  }
+  return parseModelJsonResponse(content, "GROQ QWEN 3.6-27B");
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// TESSERACT OCR ENGINE (Local — requires tesseract-ocr installed on server)
+// OLLAMA LOCAL VISION ENGINE (garnet-ocr-3b / llama3.2-vision / llava / moondream)
+// ────────────────────────────────────────────────────────────────────────────────
+
+async function runOllamaVisionOCR(imageBase64: string, model?: string): Promise<Record<string, unknown>> {
+  const base64Clean = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
+  const activeModel = model || OLLAMA_OCR_MODEL;
+
+  // Use Ollama's native /api/chat endpoint (supports images natively)
+  const payload = {
+    model: activeModel,
+    messages: [
+      {
+        role: "user",
+        content: OLLAMA_RECEIPT_PROMPT,
+        images: [base64Clean],
+      },
+    ],
+    stream: false,
+    options: {
+      temperature: 0.1,
+      num_predict: 4096,
+    },
+  };
+
+  const ollamaUrl = `${OLLAMA_HOST}/api/chat`;
+
+  const response = await fetch(ollamaUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(120000), // 2 minute timeout for local models
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => "");
+    throw new Error(`Ollama API error ${response.status} (${activeModel}): ${errBody}`);
+  }
+
+  const result = await response.json();
+  const content = result.message?.content;
+
+  if (!content) {
+    throw new Error(`Ollama returned empty response from ${activeModel}.`);
+  }
+
+  const modelLabel = activeModel.toUpperCase().replace(/[:/]/g, " ");
+  return parseModelJsonResponse(content, `OLLAMA ${modelLabel}`);
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// TESSERACT OCR ENGINE (Local CLI — basic fallback)
 // ────────────────────────────────────────────────────────────────────────────────
 
 function execPromise(cmd: string): Promise<string> {
@@ -162,7 +235,6 @@ async function runTesseractOCR(imageBase64: string): Promise<Record<string, unkn
   const base64Clean = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
   const imageBuffer = Buffer.from(base64Clean, "base64");
 
-  // Write temp image file
   const tempDir = join(tmpdir(), "jk-receipt-ocr");
   await mkdir(tempDir, { recursive: true });
   const tempId = randomUUID();
@@ -174,15 +246,7 @@ async function runTesseractOCR(imageBase64: string): Promise<Record<string, unkn
   try {
     await writeFile(inputPath, imageBuffer);
 
-    // ── IMAGE PREPROCESSING WITH IMAGEMAGICK ──
-    // Receipt-optimized pipeline:
-    //   1. Convert to grayscale (-colorspace Gray)
-    //   2. Resize to ensure minimum 300 DPI quality (-resize "2000x>")
-    //   3. Boost contrast for faded thermal prints (-contrast-stretch 3%x3%)
-    //   4. Adaptive threshold for binarization (-lat 25x25+10%)
-    //   5. Sharpen text edges (-sharpen 0x1)
-    //   6. Remove noise (-despeckle)
-    //   7. Set DPI hint for Tesseract (-density 300)
+    // Image preprocessing with ImageMagick (if available)
     try {
       const preprocessCmd = [
         `convert "${inputPath}"`,
@@ -195,62 +259,73 @@ async function runTesseractOCR(imageBase64: string): Promise<Record<string, unkn
         `-quality 100`,
         `"${preprocessedPath}"`,
       ].join(" ");
-
       await execPromise(preprocessCmd);
-    } catch (preprocessErr) {
-      // If ImageMagick is not available, proceed with raw image
-      console.warn("ImageMagick preprocessing failed, using raw image:", preprocessErr);
+    } catch {
+      console.warn("ImageMagick preprocessing unavailable, using raw image.");
       await writeFile(preprocessedPath, imageBuffer);
     }
 
-    // Tesseract CLI with receipt-optimized settings:
-    // --psm 6 : Assume a single uniform block of text (best for receipt columns)
-    // --oem 1 : LSTM neural net only (most accurate for modern Tesseract)
-    // -l eng  : English language (add +msa for Malay if installed)
-    const ocrInput = preprocessedPath;
-    const cmd = `tesseract "${ocrInput}" "${outputBase}" --psm 6 --oem 1 -l eng -c preserve_interword_spaces=1`;
-
+    const cmd = `tesseract "${preprocessedPath}" "${outputBase}" --psm 6 --oem 1 -l eng -c preserve_interword_spaces=1`;
     await execPromise(cmd);
 
-    // Read OCR output
     const { readFile: readFileAsync } = await import("fs/promises");
     const rawText = await readFileAsync(outputPath, "utf-8");
 
-    // Parse receipt text with pattern matching
     const parsed = parseReceiptText(rawText);
     return { ...parsed, engine: "TESSERACT LOCAL" };
   } finally {
-    // Cleanup temp files (non-blocking)
     unlink(inputPath).catch(() => {});
     unlink(preprocessedPath).catch(() => {});
     unlink(outputPath).catch(() => {});
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────────────
+// TESSERACT + OLLAMA HYBRID ENGINE
+// Tesseract extracts raw text → Ollama AI parses it into structured data
+// ────────────────────────────────────────────────────────────────────────────────
+
+async function runTesseractWithOllamaRefine(imageBase64: string): Promise<Record<string, unknown>> {
+  // Step 1: Try Tesseract raw text extraction
+  let rawText = "";
+  try {
+    const tessResult = await runTesseractOCR(imageBase64);
+    rawText = (tessResult.rawTextStream as string) || "";
+  } catch {
+    console.warn("Tesseract failed in hybrid mode, sending image directly to Ollama.");
+  }
+
+  // Step 2: Send image to Ollama vision for AI-powered parsing
+  // Even if Tesseract failed, Ollama vision models can read images directly
+  const result = await runOllamaVisionOCR(imageBase64);
+
+  // Append Tesseract raw text if available for reference
+  if (rawText && result.rawTextStream) {
+    result.rawTextStream = `${result.rawTextStream}\n\n--- TESSERACT RAW ---\n${rawText}`;
+  } else if (rawText) {
+    result.rawTextStream = rawText;
+  }
+
+  result.engine = `OLLAMA ${OLLAMA_OCR_MODEL.toUpperCase()} + TESSERACT`;
+  return result;
+}
+
 // Receipt text parser for Tesseract raw OCR output
 function parseReceiptText(rawText: string): Record<string, unknown> {
   const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
 
-  // Extract merchant (usually first non-empty lines)
   const merchant = lines[0] || "MERCHANT";
 
-  // Extract date patterns: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, DD MMM YYYY
   let date = new Date().toISOString().split("T")[0];
   for (const line of lines) {
-    // YYYY-MM-DD
     const isoMatch = line.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (isoMatch) {
-      date = isoMatch[0];
-      break;
-    }
-    // DD/MM/YYYY or DD-MM-YYYY
+    if (isoMatch) { date = isoMatch[0]; break; }
     const dmyMatch = line.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (dmyMatch) {
       const [, d, m, y] = dmyMatch;
       date = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
       break;
     }
-    // DD MMM YYYY
     const longMatch = line.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{4})/i);
     if (longMatch) {
       const months: Record<string, string> = {
@@ -263,59 +338,38 @@ function parseReceiptText(rawText: string): Record<string, unknown> {
     }
   }
 
-  // Extract total amount — look for TOTAL, GRAND TOTAL, JUMLAH patterns
   let total = 0;
   let subtotal = 0;
   let tax = 0;
 
   for (const line of lines) {
     const upper = line.toUpperCase();
-
-    // Tax / SST / GST
     if (/\b(SST|GST|TAX|CUKAI)\b/i.test(upper)) {
       const taxMatch = line.match(/(\d+[,.]?\d*\.?\d+)\s*$/);
-      if (taxMatch) {
-        tax = parseFloat(taxMatch[1].replace(",", ""));
-      }
+      if (taxMatch) tax = parseFloat(taxMatch[1].replace(",", ""));
     }
-
-    // Grand total or Total (prioritize GRAND TOTAL)
     if (/\b(GRAND\s*TOTAL|TOTAL\s*(?:PAID|DUE|AMOUNT)|JUMLAH\s*BESAR)\b/i.test(upper)) {
       const totalMatch = line.match(/(\d+[,.]?\d*\.?\d+)\s*$/);
-      if (totalMatch) {
-        total = parseFloat(totalMatch[1].replace(",", ""));
-      }
+      if (totalMatch) total = parseFloat(totalMatch[1].replace(",", ""));
     } else if (/\bTOTAL\b/i.test(upper) && total === 0) {
       const totalMatch = line.match(/(\d+[,.]?\d*\.?\d+)\s*$/);
-      if (totalMatch) {
-        total = parseFloat(totalMatch[1].replace(",", ""));
-      }
+      if (totalMatch) total = parseFloat(totalMatch[1].replace(",", ""));
     }
-
-    // Subtotal
     if (/\bSUB\s*TOTAL\b/i.test(upper)) {
       const stMatch = line.match(/(\d+[,.]?\d*\.?\d+)\s*$/);
-      if (stMatch) {
-        subtotal = parseFloat(stMatch[1].replace(",", ""));
-      }
+      if (stMatch) subtotal = parseFloat(stMatch[1].replace(",", ""));
     }
   }
 
-  // Extract line items — lines with prices (number at end of line)
   const items: { description: string; qty: number; price: number }[] = [];
   for (const line of lines) {
     const upper = line.toUpperCase();
-    // Skip header/footer lines
-    if (/\b(TOTAL|SUBTOTAL|SST|GST|TAX|CHANGE|CASH|CARD|VISA|MASTER|THANK|WELCOME|DATE|TIME|ADDRESS|TEL|RECEIPT|INVOICE)\b/i.test(upper)) {
-      continue;
-    }
-    // Match lines with price at end: "ITEM NAME    12.50" or "ITEM NAME x2 12.50"
+    if (/\b(TOTAL|SUBTOTAL|SST|GST|TAX|CHANGE|CASH|CARD|VISA|MASTER|THANK|WELCOME|DATE|TIME|ADDRESS|TEL|RECEIPT|INVOICE)\b/i.test(upper)) continue;
     const itemMatch = line.match(/^(.+?)\s+(\d+[,.]?\d*\.?\d+)\s*$/);
     if (itemMatch) {
       let desc = itemMatch[1].trim();
       const price = parseFloat(itemMatch[2].replace(",", ""));
       if (price > 0 && price < 100000) {
-        // Check for quantity indicator
         let qty = 1;
         const qtyMatch = desc.match(/[xX×]\s*(\d+)\s*$/);
         if (qtyMatch) {
@@ -357,29 +411,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const engine = (preferredEngine || "standard").toLowerCase();
+    const engine = (preferredEngine || "groq").toLowerCase();
     let ocrResult: Record<string, unknown>;
 
-    if (engine === "tesseract") {
-      // ── Tesseract Only ──
-      ocrResult = await runTesseractOCR(imageBase64);
-
-    } else if (engine === "groq") {
-      // ── Groq Only ──
+    if (engine === "groq") {
+      // ── Groq Cloud Vision (Primary) ──
       ocrResult = await runGroqVisionOCR(imageBase64);
 
+    } else if (engine === "ollama") {
+      // ── Ollama Local Vision (garnet-ocr-3b) ──
+      ocrResult = await runOllamaVisionOCR(imageBase64);
+
+    } else if (engine === "tesseract") {
+      // ── Tesseract + Ollama Hybrid ──
+      // Tesseract extracts text, Ollama refines into structured data
+      ocrResult = await runTesseractWithOllamaRefine(imageBase64);
+
     } else {
-      // ── Standard / Auto: Try Groq first, fall back to Tesseract ──
+      // ── Standard / Auto: Groq → Ollama → Tesseract+Ollama ──
       try {
         ocrResult = await runGroqVisionOCR(imageBase64);
       } catch (groqErr) {
-        console.warn("Groq Vision failed, attempting Tesseract fallback:", groqErr);
+        console.warn("Groq Vision failed, attempting Ollama local fallback:", groqErr);
         try {
-          ocrResult = await runTesseractOCR(imageBase64);
-          ocrResult.engine = `TESSERACT LOCAL (FALLBACK)`;
-        } catch (tessErr) {
-          console.error("Both OCR engines failed:", tessErr);
-          throw groqErr; // Throw original Groq error as it's the primary
+          ocrResult = await runOllamaVisionOCR(imageBase64);
+          ocrResult.engine = `OLLAMA ${OLLAMA_OCR_MODEL.toUpperCase()} (FALLBACK)`;
+        } catch (ollamaErr) {
+          console.warn("Ollama Vision failed, attempting Tesseract fallback:", ollamaErr);
+          try {
+            ocrResult = await runTesseractOCR(imageBase64);
+            ocrResult.engine = "TESSERACT LOCAL (FALLBACK)";
+          } catch (tessErr) {
+            console.error("All OCR engines failed:", tessErr);
+            throw groqErr;
+          }
         }
       }
     }
