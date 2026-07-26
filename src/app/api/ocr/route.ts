@@ -166,20 +166,37 @@ async function runGroqVisionOCR(imageBase64: string): Promise<Record<string, unk
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// OLLAMA LOCAL VISION ENGINE (garnet-ocr-3b / llama3.2-vision / llava / moondream)
+// OLLAMA LOCAL VISION ENGINE (moondream / llama3.2-vision / llava)
+// Two-step pipeline for small models:
+//   Step 1: Ask model to read all text from the image (simple task)
+//   Step 2: Parse extracted text with our code-based receipt parser
+// Larger models (llama3.2-vision, llava) get the full JSON extraction prompt
 // ────────────────────────────────────────────────────────────────────────────────
+
+// Simple OCR-only prompt for small models (moondream, etc.)
+const OLLAMA_SIMPLE_OCR_PROMPT = `Read this receipt image very carefully. List every single line of text you can see on this receipt, exactly as printed. Include the store name, date, every item with its price, subtotal, tax, and total. Do not skip any text. Write each line on a new line.`;
+
+// Models that are large enough to handle full JSON extraction
+const LARGE_VISION_MODELS = ["llama3.2-vision", "llava"];
+
+function isLargeModel(modelName: string): boolean {
+  return LARGE_VISION_MODELS.some((m) => modelName.toLowerCase().includes(m));
+}
 
 async function runOllamaVisionOCR(imageBase64: string, model?: string): Promise<Record<string, unknown>> {
   const base64Clean = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
   const activeModel = model || OLLAMA_OCR_MODEL;
+  const useLargePrompt = isLargeModel(activeModel);
 
-  // Use Ollama's native /api/chat endpoint (supports images natively)
+  // Choose prompt based on model capability
+  const prompt = useLargePrompt ? OLLAMA_RECEIPT_PROMPT : OLLAMA_SIMPLE_OCR_PROMPT;
+
   const payload = {
     model: activeModel,
     messages: [
       {
         role: "user",
-        content: OLLAMA_RECEIPT_PROMPT,
+        content: prompt,
         images: [base64Clean],
       },
     ],
@@ -212,7 +229,20 @@ async function runOllamaVisionOCR(imageBase64: string, model?: string): Promise<
   }
 
   const modelLabel = activeModel.toUpperCase().replace(/[:/]/g, " ");
-  return parseModelJsonResponse(content, `OLLAMA ${modelLabel}`);
+
+  if (useLargePrompt) {
+    // Large models: try to parse as JSON directly
+    return parseModelJsonResponse(content, `OLLAMA ${modelLabel}`);
+  } else {
+    // Small models (moondream): use code-based receipt text parser
+    // The model just returns raw text → our parser structures it
+    const parsed = parseReceiptText(content);
+    return {
+      ...parsed,
+      rawTextStream: content,
+      engine: `OLLAMA ${modelLabel}`,
+    };
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
