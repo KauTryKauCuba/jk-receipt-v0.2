@@ -412,14 +412,18 @@ async function runPaddleOCR(imageBase64: string): Promise<Record<string, unknown
     // Python script with dynamic site-packages path discovery
     const pyScript = `import sys, os, glob, site, json
 
-# Auto-add user site-packages paths for PaddleOCR
+# Auto-add user and system site-packages/dist-packages paths for PaddleOCR & dependencies
 user_paths = [
     site.getusersitepackages() if hasattr(site, 'getusersitepackages') else '',
-    os.path.expanduser('~/.local/lib/python3.12/site-packages'),
-    os.path.expanduser('~/.local/lib/python3.11/site-packages'),
-    os.path.expanduser('~/.local/lib/python3.10/site-packages'),
-    '/home/muddassir/.local/lib/python3.12/site-packages'
-] + glob.glob(os.path.expanduser('~/.local/lib/python*/site-packages'))
+    '/home/muddassir/.local/lib/python3.12/site-packages',
+    '/home/muddassir/.local/lib/python3.11/site-packages',
+    '/usr/local/lib/python3.12/dist-packages',
+    '/usr/local/lib/python3.11/dist-packages',
+    '/usr/lib/python3/dist-packages',
+    '/usr/lib/python3.12/site-packages',
+] + glob.glob('/home/muddassir/.local/lib/python*/site-packages') \
+  + glob.glob('/usr/local/lib/python*/dist-packages') \
+  + glob.glob('/usr/local/lib/python*/site-packages')
 
 for p in user_paths:
     if p and os.path.exists(p) and p not in sys.path:
