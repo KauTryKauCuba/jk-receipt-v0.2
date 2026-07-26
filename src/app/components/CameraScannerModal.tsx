@@ -13,7 +13,7 @@ export default function CameraScannerModal({
   isOpen,
   onClose,
   onCapture,
-  defaultEngine = "heuristics",
+  defaultEngine = "standard",
 }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,18 +50,49 @@ export default function CameraScannerModal({
           throw new Error("MediaDevices API not supported on this browser context.");
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
-          },
-          audio: false,
-        });
+        let stream: MediaStream;
+        try {
+          // Request maximum camera resolution (4K / 1080p full HD hardware camera quality)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 3840, min: 1920 },
+              height: { ideal: 2160, min: 1080 },
+              frameRate: { ideal: 30 },
+            },
+            audio: false,
+          });
+        } catch {
+          // Fallback to high quality HD stream
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+            },
+            audio: false,
+          });
+        }
 
         if (!isMounted) {
           stream.getTracks().forEach((track) => track.stop());
           return;
+        }
+
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack && typeof videoTrack.applyConstraints === "function") {
+          try {
+            const capabilities = videoTrack.getCapabilities?.() as Record<string, unknown> | undefined;
+            const advancedConstraints: Record<string, unknown>[] = [];
+            if (capabilities && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes("continuous")) {
+              advancedConstraints.push({ focusMode: "continuous" });
+            }
+            if (advancedConstraints.length > 0) {
+              await videoTrack.applyConstraints({ advanced: advancedConstraints } as MediaTrackConstraints);
+            }
+          } catch {
+            // Optional advanced hardware constraints
+          }
         }
 
         streamRef.current = stream;
@@ -92,13 +123,16 @@ export default function CameraScannerModal({
 
     let dataUrl: string | undefined;
     if (videoRef.current && videoRef.current.videoWidth > 0) {
+      const video = videoRef.current;
       const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.98);
       }
     } else {
       // Fallback generator for simulation mode (e.g. desktop environment without physical camera attached)
@@ -407,36 +441,45 @@ export default function CameraScannerModal({
             borderTop: "1px solid var(--border-visible)",
           }}
         >
-          {/* MODEL ENGINE SELECTOR */}
+          {/* ENGINE SELECTOR */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span
               style={{
                 fontFamily: "var(--font-data)",
-                fontSize: "10px",
+                fontSize: "9px",
                 fontWeight: "700",
                 color: "var(--text-secondary)",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.08em",
               }}
             >
-              MODEL ENGINE:
+              ENGINE:
             </span>
             <select
               value={selectedEngine}
               onChange={(e) => setSelectedEngine(e.target.value)}
               style={{
-                backgroundColor: "var(--surface)",
+                backgroundColor: "var(--surface-sunken)",
                 color: "var(--text-display)",
                 border: "1px solid var(--border-visible)",
                 borderRadius: "6px",
                 padding: "5px 10px",
                 fontFamily: "var(--font-data)",
-                fontSize: "11px",
-                fontWeight: "600",
+                fontSize: "10px",
+                fontWeight: "700",
+                letterSpacing: "0.06em",
                 cursor: "pointer",
                 outline: "none",
+                appearance: "none",
+                WebkitAppearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23999' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 8px center",
+                paddingRight: "26px",
               }}
             >
-              <option value="heuristics">🔍 Local Regex Heuristics Engine [ACTIVE]</option>
+              <option value="groq">⚡ GROQ AI VISION</option>
+              <option value="tesseract">🔠 TESSERACT LOCAL</option>
+              <option value="standard">⟐ AUTO (GROQ → TESSERACT)</option>
             </select>
           </div>
 
@@ -464,7 +507,7 @@ export default function CameraScannerModal({
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
-            <span>{isCapturing ? "[ CAPTURING... ]" : "[ CAPTURE & OCR SCAN ]"}</span>
+            <span>{isCapturing ? "[ CAPTURING... ]" : `[ CAPTURE & ${selectedEngine === "tesseract" ? "TESSERACT" : selectedEngine === "groq" ? "GROQ AI" : "AUTO"} SCAN ]`}</span>
           </button>
         </div>
       </div>

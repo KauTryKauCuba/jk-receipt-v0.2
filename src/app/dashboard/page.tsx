@@ -91,7 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [selectedOcrEngine, setSelectedOcrEngine] = useState("heuristics");
+  const [selectedOcrEngine, setSelectedOcrEngine] = useState("groq");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -166,13 +166,13 @@ export default function DashboardPage() {
 
       setScanLogs((prev) => [...prev, "[AI VISION] OPTIMIZING & DOWN SCALING HIGH-RES BUFFER..."]);
 
-      // Ultra Token-Efficient Image Preprocessing (1200px maxDim, 0.88 quality for low token consumption)
+      // Full High-Definition Camera Quality Preprocessing (2560px maxDim, 0.96 quality for ultra-sharp fine-print details)
       const compressedImage = await new Promise<string>((resolve) => {
         const img = new Image();
         img.onload = () => {
           let w = img.width;
           let h = img.height;
-          const maxDim = 1200;
+          const maxDim = 2560;
           if (w > maxDim || h > maxDim) {
             if (w > h) {
               h = Math.round((h * maxDim) / w);
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL("image/jpeg", 0.88));
+            resolve(canvas.toDataURL("image/jpeg", 0.96));
           } else {
             resolve(base64DataUrl);
           }
@@ -1392,24 +1392,6 @@ export default function DashboardPage() {
                         <span>[ UPLOAD / DROP FILE ]</span>
                       </button>
 
-                      <select
-                        value={selectedOcrEngine}
-                        onChange={(e) => setSelectedOcrEngine(e.target.value)}
-                        style={{
-                          backgroundColor: "var(--surface)",
-                          color: "var(--text-display)",
-                          border: "1px solid var(--border-visible)",
-                          borderRadius: "8px",
-                          padding: "8px 12px",
-                          fontFamily: "var(--font-data)",
-                          fontSize: "11px",
-                          fontWeight: "700",
-                          cursor: "pointer",
-                          outline: "none",
-                        }}
-                      >
-                        <option value="heuristics">🔍 Local Regex Heuristics Engine [ACTIVE]</option>
-                      </select>
                     </div>
 
                     <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "var(--text-secondary)", marginTop: "4px" }}>
