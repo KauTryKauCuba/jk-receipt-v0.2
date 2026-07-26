@@ -447,9 +447,13 @@ except Exception as e:
     try {
       stdout = await execPromise(pyCmd);
     } catch {
-      // Fallback: try explicitly calling python3 via user local bin path
-      const userPyCmd = `PYTHONPATH=$HOME/.local/lib/python3.12/site-packages python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
-      stdout = await execPromise(userPyCmd);
+      try {
+        const userPyCmd = `/home/muddassir/.local/bin/python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+        stdout = await execPromise(userPyCmd);
+      } catch {
+        const envPyCmd = `PYTHONPATH=/home/muddassir/.local/lib/python3.12/site-packages python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+        stdout = await execPromise(envPyCmd);
+      }
     }
 
     let extractedText = "";

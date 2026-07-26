@@ -16,6 +16,8 @@ services:
       - LOCAL_VISION_MODEL=${LOCAL_VISION_MODEL:-moondream:latest}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/muddassir/.local:/home/muddassir/.local:ro
     depends_on:
       - db
 
