@@ -394,6 +394,72 @@ function parseReceiptText(rawText: string): Record<string, unknown> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
+// PADDLEOCR ENGINE (Local Python3 + PaddleOCR)
+// ────────────────────────────────────────────────────────────────────────────────
+
+async function runPaddleOCR(imageBase64: string): Promise<Record<string, unknown>> {
+  const base64Clean = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
+  const imageBuffer = Buffer.from(base64Clean, "base64");
+
+  const tempDir = join(tmpdir(), "jk-receipt-ocr");
+  await mkdir(tempDir, { recursive: true });
+  const tempId = randomUUID();
+  const inputPath = join(tempDir, `${tempId}.jpg`);
+
+  try {
+    await writeFile(inputPath, imageBuffer);
+
+    // Python inline script invoking PaddleOCR engine
+    const pyScript = `import sys, json
+try:
+    from paddleocr import PaddleOCR
+    ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+    result = ocr.ocr(sys.argv[1], cls=True)
+    lines = []
+    if result:
+        for block in result:
+            if block:
+                for line in block:
+                    if line and len(line) > 1 and line[1]:
+                        lines.append(str(line[1][0]))
+    print(json.dumps({"success": True, "text": "\\n".join(lines)}))
+except Exception as e:
+    print(json.dumps({"success": False, "error": str(e)}))`;
+
+    const pyCmd = `python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+    let stdout = "";
+    try {
+      stdout = await execPromise(pyCmd);
+    } catch {
+      // Fallback: attempt running python via user local path if system python3 fails
+      const userPyCmd = `~/.local/bin/python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
+      stdout = await execPromise(userPyCmd);
+    }
+
+    let extractedText = "";
+    try {
+      const parsedPy = JSON.parse(stdout);
+      if (parsedPy.success) {
+        extractedText = parsedPy.text;
+      } else {
+        throw new Error(parsedPy.error || "PaddleOCR execution failed.");
+      }
+    } catch {
+      extractedText = stdout;
+    }
+
+    if (!extractedText.trim()) {
+      throw new Error("PaddleOCR returned empty text output.");
+    }
+
+    const parsed = parseReceiptText(extractedText);
+    return { ...parsed, engine: "PADDLEOCR LOCAL" };
+  } finally {
+    unlink(inputPath).catch(() => {});
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
 // API ROUTE HANDLER
 // ────────────────────────────────────────────────────────────────────────────────
 
@@ -417,6 +483,10 @@ export async function POST(req: NextRequest) {
     if (engine === "groq") {
       // ── Groq Cloud Vision (Primary) ──
       ocrResult = await runGroqVisionOCR(imageBase64);
+
+    } else if (engine === "paddle" || engine === "paddleocr") {
+      // ── PaddleOCR Local Engine ──
+      ocrResult = await runPaddleOCR(imageBase64);
 
     } else if (engine === "ollama") {
       // ── Ollama Local Vision (moondream:latest) ──

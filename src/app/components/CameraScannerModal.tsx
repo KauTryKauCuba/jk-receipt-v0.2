@@ -478,10 +478,11 @@ export default function CameraScannerModal({
               }}
             >
               <option value="groq">⚡ GROQ AI VISION (CLOUD)</option>
+              <option value="paddle">🐼 PADDLEOCR (LOCAL PYTHON)</option>
               <option value="ollama">🧠 OLLAMA (MOONDREAM 1.7B)</option>
               <option value="llama32">🦙 OLLAMA (LLAMA 3.2 VISION 7.8B)</option>
               <option value="tesseract">🔠 TESSERACT + OLLAMA</option>
-              <option value="standard">⟐ AUTO (GROQ → OLLAMA → TESS)</option>
+              <option value="standard">⟐ AUTO (GROQ → PADDLE → OLLAMA → TESS)</option>
             </select>
           </div>
 
@@ -509,7 +510,7 @@ export default function CameraScannerModal({
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
-            <span>{isCapturing ? "[ CAPTURING... ]" : `[ CAPTURE & ${selectedEngine === "groq" ? "GROQ AI" : selectedEngine === "llama32" ? "LLAMA 3.2" : selectedEngine === "ollama" ? "OLLAMA AI" : selectedEngine === "tesseract" ? "TESS+AI" : "AUTO"} SCAN ]`}</span>
+            <span>{isCapturing ? "[ CAPTURING... ]" : `[ CAPTURE & ${selectedEngine === "groq" ? "GROQ AI" : selectedEngine === "paddle" ? "PADDLE OCR" : selectedEngine === "llama32" ? "LLAMA 3.2" : selectedEngine === "ollama" ? "OLLAMA AI" : selectedEngine === "tesseract" ? "TESS+AI" : "AUTO"} SCAN ]`}</span>
           </button>
         </div>
       </div>
