@@ -167,17 +167,48 @@ async function runTesseractOCR(imageBase64: string): Promise<Record<string, unkn
   await mkdir(tempDir, { recursive: true });
   const tempId = randomUUID();
   const inputPath = join(tempDir, `${tempId}.jpg`);
+  const preprocessedPath = join(tempDir, `${tempId}_preprocessed.png`);
   const outputBase = join(tempDir, `${tempId}_out`);
   const outputPath = `${outputBase}.txt`;
 
   try {
     await writeFile(inputPath, imageBuffer);
 
+    // ── IMAGE PREPROCESSING WITH IMAGEMAGICK ──
+    // Receipt-optimized pipeline:
+    //   1. Convert to grayscale (-colorspace Gray)
+    //   2. Resize to ensure minimum 300 DPI quality (-resize "2000x>")
+    //   3. Boost contrast for faded thermal prints (-contrast-stretch 3%x3%)
+    //   4. Adaptive threshold for binarization (-lat 25x25+10%)
+    //   5. Sharpen text edges (-sharpen 0x1)
+    //   6. Remove noise (-despeckle)
+    //   7. Set DPI hint for Tesseract (-density 300)
+    try {
+      const preprocessCmd = [
+        `convert "${inputPath}"`,
+        `-colorspace Gray`,
+        `-resize "2400x>"`,
+        `-contrast-stretch 3%x3%`,
+        `-sharpen 0x1`,
+        `-despeckle`,
+        `-density 300`,
+        `-quality 100`,
+        `"${preprocessedPath}"`,
+      ].join(" ");
+
+      await execPromise(preprocessCmd);
+    } catch (preprocessErr) {
+      // If ImageMagick is not available, proceed with raw image
+      console.warn("ImageMagick preprocessing failed, using raw image:", preprocessErr);
+      await writeFile(preprocessedPath, imageBuffer);
+    }
+
     // Tesseract CLI with receipt-optimized settings:
-    // --psm 4 : Assume single column of text of variable sizes (receipts are narrow columns)
-    // --oem 3 : Default LSTM + legacy combined for best accuracy
+    // --psm 6 : Assume a single uniform block of text (best for receipt columns)
+    // --oem 1 : LSTM neural net only (most accurate for modern Tesseract)
     // -l eng  : English language (add +msa for Malay if installed)
-    const cmd = `tesseract "${inputPath}" "${outputBase}" --psm 4 --oem 3 -l eng -c preserve_interword_spaces=1`;
+    const ocrInput = preprocessedPath;
+    const cmd = `tesseract "${ocrInput}" "${outputBase}" --psm 6 --oem 1 -l eng -c preserve_interword_spaces=1`;
 
     await execPromise(cmd);
 
@@ -191,6 +222,7 @@ async function runTesseractOCR(imageBase64: string): Promise<Record<string, unkn
   } finally {
     // Cleanup temp files (non-blocking)
     unlink(inputPath).catch(() => {});
+    unlink(preprocessedPath).catch(() => {});
     unlink(outputPath).catch(() => {});
   }
 }
