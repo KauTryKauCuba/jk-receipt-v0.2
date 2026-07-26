@@ -16,7 +16,7 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // Ollama Local Vision (garnet-ocr-3b, llama3.2-vision, llava, moondream)
 const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://172.17.0.1:11434";
-const OLLAMA_OCR_MODEL = process.env.LOCAL_VISION_MODEL || "garnet-ocr-3b";
+const OLLAMA_OCR_MODEL = process.env.LOCAL_VISION_MODEL || "hf.co/mradermacher/Garnet-OCR-3B-0422-GGUF:Q4_K_M";
 
 // Receipt-optimized system prompt for structured JSON extraction
 const RECEIPT_SYSTEM_PROMPT = `You are an expert receipt OCR parser. Analyze the receipt image and extract ALL information into valid JSON.
