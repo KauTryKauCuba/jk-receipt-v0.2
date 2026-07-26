@@ -409,26 +409,8 @@ async function runPaddleOCR(imageBase64: string): Promise<Record<string, unknown
   try {
     await writeFile(inputPath, imageBuffer);
 
-    // Python script with dynamic site-packages path discovery
-    const pyScript = `import sys, os, glob, site, json
-
-# Auto-add user and system site-packages/dist-packages paths for PaddleOCR & dependencies
-user_paths = [
-    site.getusersitepackages() if hasattr(site, 'getusersitepackages') else '',
-    '/home/muddassir/.local/lib/python3.12/site-packages',
-    '/home/muddassir/.local/lib/python3.11/site-packages',
-    '/usr/local/lib/python3.12/dist-packages',
-    '/usr/local/lib/python3.11/dist-packages',
-    '/usr/lib/python3/dist-packages',
-    '/usr/lib/python3.12/site-packages',
-] + glob.glob('/home/muddassir/.local/lib/python*/site-packages') \
-  + glob.glob('/usr/local/lib/python*/dist-packages') \
-  + glob.glob('/usr/local/lib/python*/site-packages')
-
-for p in user_paths:
-    if p and os.path.exists(p) and p not in sys.path:
-        sys.path.insert(0, p)
-
+    // Python script calling PaddleOCR
+    const pyScript = `import sys, json
 try:
     from paddleocr import PaddleOCR
     ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
@@ -446,19 +428,7 @@ except Exception as e:
 
     const pythonBin = process.env.PADDLE_PYTHON_PATH || "python3";
     const pyCmd = `${pythonBin} -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
-    
-    let stdout = "";
-    try {
-      stdout = await execPromise(pyCmd);
-    } catch {
-      try {
-        const userPyCmd = `/home/muddassir/.local/bin/python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
-        stdout = await execPromise(userPyCmd);
-      } catch {
-        const envPyCmd = `PYTHONPATH=/home/muddassir/.local/lib/python3.12/site-packages python3 -c '${pyScript.replace(/'/g, "'\\''")}' "${inputPath}"`;
-        stdout = await execPromise(envPyCmd);
-      }
-    }
+    const stdout = await execPromise(pyCmd);
 
     let extractedText = "";
     try {
