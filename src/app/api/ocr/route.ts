@@ -419,8 +419,12 @@ export async function POST(req: NextRequest) {
       ocrResult = await runGroqVisionOCR(imageBase64);
 
     } else if (engine === "ollama") {
-      // ── Ollama Local Vision (garnet-ocr-3b) ──
-      ocrResult = await runOllamaVisionOCR(imageBase64);
+      // ── Ollama Local Vision (moondream:latest) ──
+      ocrResult = await runOllamaVisionOCR(imageBase64, "moondream:latest");
+
+    } else if (engine === "llama32" || engine === "llama3.2-vision" || engine === "llama3.2") {
+      // ── Ollama Local Vision (llama3.2-vision:latest) ──
+      ocrResult = await runOllamaVisionOCR(imageBase64, "llama3.2-vision:latest");
 
     } else if (engine === "tesseract") {
       // ── Tesseract + Ollama Hybrid ──
