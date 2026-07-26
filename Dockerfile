@@ -21,7 +21,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-msa imagemagick python3
+RUN apk add --no-cache libc6-compat tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-msa imagemagick python3 py3-pip gcompat
+RUN pip install --no-cache-dir paddleocr --break-system-packages
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
