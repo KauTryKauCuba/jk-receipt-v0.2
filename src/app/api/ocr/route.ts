@@ -14,9 +14,9 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Ollama Local Vision (garnet-ocr-3b, llama3.2-vision, llava, moondream)
+// Ollama Local Vision (moondream, llama3.2-vision, llava, garnet-ocr-3b)
 const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://172.17.0.1:11434";
-const OLLAMA_OCR_MODEL = process.env.LOCAL_VISION_MODEL || "hf.co/mradermacher/Garnet-OCR-3B-0422-GGUF:Q4_K_M";
+const OLLAMA_OCR_MODEL = process.env.LOCAL_VISION_MODEL || "moondream:latest";
 
 // Receipt-optimized system prompt for structured JSON extraction
 const RECEIPT_SYSTEM_PROMPT = `You are an expert receipt OCR parser. Analyze the receipt image and extract ALL information into valid JSON.
