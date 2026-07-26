@@ -8,7 +8,13 @@ import FontToggleButton from "../components/FontToggleButton";
 import PWAInstallButton from "../components/PWAInstallButton";
 
 export default function ReleaseNotesPage() {
-  const [isLightMode, setIsLightMode] = useState(false);
+  const [isLightMode, setIsLightMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const savedTheme = localStorage.getItem("theme");
+      return savedTheme === "light";
+    }
+    return false;
+  });
 
   const toggleTheme = () => {
     const newMode = !isLightMode;
@@ -22,15 +28,12 @@ export default function ReleaseNotesPage() {
   };
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const isLight = savedTheme === "light";
-    if (isLight) {
-      setIsLightMode(true);
+    if (isLightMode) {
       document.documentElement.classList.add("light");
     } else {
       document.documentElement.classList.remove("light");
     }
-  }, []);
+  }, [isLightMode]);
 
   const releases = [
     {
@@ -193,7 +196,7 @@ export default function ReleaseNotesPage() {
                     {rel.version}
                   </span>
                   <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)" }}>
-                    // RELEASED {rel.date}
+                    {"// "}RELEASED {rel.date}
                   </span>
                 </div>
                 <span

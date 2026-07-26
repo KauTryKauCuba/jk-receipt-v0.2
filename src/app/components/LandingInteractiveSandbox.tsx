@@ -123,7 +123,7 @@ export default function LandingInteractiveSandbox() {
                   transition: "all 0.15s ease",
                 }}
               >
-                [ {preset.merchant.split(" ")[0]} // RM {preset.amount.toFixed(2)} ]
+                [ {preset.merchant.split(" ")[0]} {"//"} RM {preset.amount.toFixed(2)} ]
               </button>
             );
           })}

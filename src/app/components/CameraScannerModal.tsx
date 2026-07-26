@@ -13,7 +13,7 @@ export default function CameraScannerModal({
   isOpen,
   onClose,
   onCapture,
-  defaultEngine = "gemini",
+  defaultEngine = "heuristics",
 }: CameraScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -21,10 +21,12 @@ export default function CameraScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [selectedEngine, setSelectedEngine] = useState(defaultEngine);
+  const [prevDefaultEngine, setPrevDefaultEngine] = useState(defaultEngine);
 
-  useEffect(() => {
+  if (defaultEngine !== prevDefaultEngine) {
+    setPrevDefaultEngine(defaultEngine);
     setSelectedEngine(defaultEngine);
-  }, [defaultEngine]);
+  }
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -434,10 +436,7 @@ export default function CameraScannerModal({
                 outline: "none",
               }}
             >
-              <option value="gemini">⚡ Google Gemini Flash (Cloud AI) [DEFAULT]</option>
-              <option value="groq">🚀 Groq Qwen 3.6-27B (Cloud AI)</option>
-              <option value="auto">🤖 Smart Auto Cloud Hybrid</option>
-              <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
+              <option value="heuristics">🔍 Local Regex Heuristics Engine [ACTIVE]</option>
             </select>
           </div>
 

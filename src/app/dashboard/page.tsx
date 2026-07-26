@@ -91,7 +91,7 @@ export default function DashboardPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [selectedOcrEngine, setSelectedOcrEngine] = useState("gemini");
+  const [selectedOcrEngine, setSelectedOcrEngine] = useState("heuristics");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
     fileName: string;
@@ -1408,10 +1408,7 @@ export default function DashboardPage() {
                           outline: "none",
                         }}
                       >
-                        <option value="gemini">⚡ Google Gemini Flash (Cloud AI) [DEFAULT]</option>
-                        <option value="groq">🚀 Groq Qwen 3.6-27B (Cloud AI)</option>
-                        <option value="auto">🤖 Smart Auto Cloud Hybrid</option>
-                        <option value="heuristics">🔍 Local Regex Heuristics Engine</option>
+                        <option value="heuristics">🔍 Local Regex Heuristics Engine [ACTIVE]</option>
                       </select>
                     </div>
 

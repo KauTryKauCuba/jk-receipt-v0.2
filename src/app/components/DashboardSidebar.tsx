@@ -282,6 +282,12 @@ export default function DashboardSidebar({
               key={item.id}
               href={item.href}
               className={`nav-link ${isActive ? "active" : ""}`}
+              onClick={(e) => {
+                if (item.id === "team" && onOpenTeamModal) {
+                  e.preventDefault();
+                  onOpenTeamModal();
+                }
+              }}
               style={{
                 ...sidebarNavItemStyle,
                 backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent",
