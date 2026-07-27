@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import DashboardSidebar from "../components/DashboardSidebar";
 import DashboardNavbar from "../components/DashboardNavbar";
 import MatrixText from "../components/MatrixText";
-import TeamWorkspaceModal from "../components/TeamWorkspaceModal";
 import CameraScannerModal from "../components/CameraScannerModal";
 import CustomDropdown from "../components/CustomDropdown";
 import Recreated3DReceipt from "../components/Recreated3DReceipt";
@@ -90,7 +89,6 @@ export default function DashboardPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanLogs, setScanLogs] = useState<string[]>([]);
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [selectedOcrEngine, setSelectedOcrEngine] = useState("groq");
   const [latestScannedResult, setLatestScannedResult] = useState<{
     record: ReceiptRecord;
@@ -346,7 +344,6 @@ export default function DashboardPage() {
         activeNav={activeNav}
         isScanning={isScanning}
         onTriggerScan={triggerScan}
-        onOpenTeamModal={() => setIsTeamModalOpen(true)}
       />
 
       {/* MAIN DASHBOARD CONTENT AREA */}
@@ -1736,10 +1733,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      <TeamWorkspaceModal
-        isOpen={isTeamModalOpen}
-        onClose={() => setIsTeamModalOpen(false)}
-      />
       <CameraScannerModal
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import DashboardSidebar from "../../components/DashboardSidebar";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import MatrixText from "../../components/MatrixText";
-import TeamWorkspaceModal from "../../components/TeamWorkspaceModal";
 
 interface ReceiptRecord {
   id: string;
@@ -55,7 +54,6 @@ export default function MonthsPage() {
   const [monthsViewMode, setMonthsViewMode] = useState<"CALENDAR" | "CARDS">("CALENDAR");
   const [selectedMonthDetail, setSelectedMonthDetail] = useState<MonthRecord | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
   const triggerScan = () => {
     setIsScanning(true);
@@ -72,7 +70,6 @@ export default function MonthsPage() {
         activeNav="months"
         isScanning={isScanning}
         onTriggerScan={triggerScan}
-        onOpenTeamModal={() => setIsTeamModalOpen(true)}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -425,10 +422,6 @@ export default function MonthsPage() {
         </div>
       )}
 
-      <TeamWorkspaceModal
-        isOpen={isTeamModalOpen}
-        onClose={() => setIsTeamModalOpen(false)}
-      />
     </div>
   );
 }

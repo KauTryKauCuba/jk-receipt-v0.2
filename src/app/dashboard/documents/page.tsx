@@ -4,7 +4,6 @@ import { useState } from "react";
 import DashboardSidebar from "../../components/DashboardSidebar";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import MatrixText from "../../components/MatrixText";
-import TeamWorkspaceModal from "../../components/TeamWorkspaceModal";
 
 interface DocumentRecord {
   id: string;
@@ -36,7 +35,6 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentRecord[]>(INITIAL_DOCUMENTS);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
   const triggerScan = () => {
     setIsScanning(true);
@@ -75,7 +73,6 @@ export default function DocumentsPage() {
         activeNav="documents"
         isScanning={isScanning}
         onTriggerScan={triggerScan}
-        onOpenTeamModal={() => setIsTeamModalOpen(true)}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -314,10 +311,6 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      <TeamWorkspaceModal
-        isOpen={isTeamModalOpen}
-        onClose={() => setIsTeamModalOpen(false)}
-      />
     </div>
   );
 }

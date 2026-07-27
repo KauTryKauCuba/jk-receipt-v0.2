@@ -6,13 +6,11 @@ import DashboardSidebar from "../../components/DashboardSidebar";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import MatrixText from "../../components/MatrixText";
 import OperatorPassCard from "../../components/OperatorPassCard";
-import TeamWorkspaceModal from "../../components/TeamWorkspaceModal";
 import CustomDropdown from "../../components/CustomDropdown";
 
 export default function AccountSettingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isScanning, setIsScanning] = useState(false);
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
   // Form State
   const [callSign, setCallSign] = useState("ALDRIN_02");
@@ -43,7 +41,6 @@ export default function AccountSettingsPage() {
         activeNav="account_settings"
         isScanning={isScanning}
         onTriggerScan={triggerScan}
-        onOpenTeamModal={() => setIsTeamModalOpen(true)}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -285,10 +282,6 @@ export default function AccountSettingsPage() {
         </div>
       </main>
 
-      <TeamWorkspaceModal
-        isOpen={isTeamModalOpen}
-        onClose={() => setIsTeamModalOpen(false)}
-      />
     </div>
   );
 }

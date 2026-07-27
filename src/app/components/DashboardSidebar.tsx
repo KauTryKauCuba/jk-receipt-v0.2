@@ -9,14 +9,12 @@ interface DashboardSidebarProps {
   activeNav: string;
   isScanning?: boolean;
   onTriggerScan?: () => void;
-  onOpenTeamModal?: () => void;
 }
 
 export default function DashboardSidebar({
   activeNav,
   isScanning = false,
   onTriggerScan,
-  onOpenTeamModal,
 }: DashboardSidebarProps) {
   const [isLightMode, setIsLightMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -282,12 +280,6 @@ export default function DashboardSidebar({
               key={item.id}
               href={item.href}
               className={`nav-link ${isActive ? "active" : ""}`}
-              onClick={(e) => {
-                if (item.id === "team" && onOpenTeamModal) {
-                  e.preventDefault();
-                  onOpenTeamModal();
-                }
-              }}
               style={{
                 ...sidebarNavItemStyle,
                 backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent",
