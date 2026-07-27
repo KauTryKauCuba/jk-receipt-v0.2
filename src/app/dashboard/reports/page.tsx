@@ -5,6 +5,53 @@ import DashboardSidebar from "../../components/DashboardSidebar";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import MatrixText from "../../components/MatrixText";
 import CameraScannerModal from "../../components/CameraScannerModal";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/line-charts-9";
+import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
+
+const RECHARTS_TREND_DATA = [
+  { month: "JAN 2026", gross: 4890.00, tax: 1980.00 },
+  { month: "FEB 2026", gross: 3450.00, tax: 1100.00 },
+  { month: "MAR 2026", gross: 4110.00, tax: 1620.00 },
+  { month: "APR 2026", gross: 6240.00, tax: 2890.00 },
+  { month: "MAY 2026", gross: 3980.00, tax: 1450.00 },
+  { month: "JUN 2026", gross: 5120.00, tax: 2140.00 },
+  { month: "JUL 2026", gross: 5840.00, tax: 4949.90 },
+];
+
+const rechartsConfig = {
+  gross: {
+    label: "Gross Expenditure",
+    color: "var(--orange)",
+  },
+  tax: {
+    label: "Tax Claims",
+    color: "var(--success)",
+  },
+} satisfies ChartConfig;
+
+const RechartsCustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div style={{ backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "10px 12px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
+        <div style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", marginBottom: "4px" }}>
+          {data.month} // AUDIT SNAPSHOT
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)" }}>GROSS:</span>
+            <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "var(--orange)" }}>${data.gross.toLocaleString("en-US", { minimumFractionDigits: 2 })} MYR</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+            <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)" }}>TAX CLAIM:</span>
+            <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "var(--success)" }}>${data.tax.toLocaleString("en-US", { minimumFractionDigits: 2 })} MYR</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 interface ReportSummary {
   id: string;
@@ -205,13 +252,13 @@ export default function ReportsPage() {
           {/* ============================================================== */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "var(--space-md)" }}>
             
-            {/* GRAPH TYPE 1: REFINED MONTHLY TELEMETRY TREND (SMOOTH CUBIC BEZIER & MULTI-MODE) */}
+            {/* GRAPH TYPE 1: REFINED MONTHLY TELEMETRY TREND (LINE-CHARTS-9 INTEGRATION) */}
             <div className="dot-grid-subtle" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
               
               {/* GRAPH 01 HEADER CONTROLS */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
                 <div>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", fontWeight: "700", color: "var(--text-display)", letterSpacing: "0.06em", display: "block" }}>
+                  <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "var(--text-display)", letterSpacing: "0.08em", display: "block" }}>
                     [ GRAPH 01: MONTHLY TELEMETRY TREND ]
                   </span>
                   <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)" }}>
@@ -219,355 +266,170 @@ export default function ReportsPage() {
                   </span>
                 </div>
 
-                {/* GRAPH 01 VIEW MODE SWITCHER */}
-                <div style={{ display: "flex", gap: "4px", backgroundColor: "var(--surface-raised)", padding: "2px", borderRadius: "6px", border: "1px solid var(--border-visible)" }}>
-                  {(["AREA", "LINE", "BARS"] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setGraph01Mode(mode)}
-                      style={{
-                        backgroundColor: graph01Mode === mode ? "var(--text-display)" : "transparent",
-                        color: graph01Mode === mode ? "var(--black)" : "var(--text-secondary)",
-                        border: "none",
-                        fontFamily: "var(--font-data)",
-                        fontSize: "10px",
-                        fontWeight: "700",
-                        padding: "3px 8px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* TOGGLEABLE INTERACTIVE LEGEND PILLS */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "8px 12px", flexWrap: "wrap", gap: "8px" }}>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button
-                    onClick={() => setShowGrossLayer(!showGrossLayer)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: showGrossLayer ? "var(--orange)" : "var(--text-disabled)",
-                      fontFamily: "var(--font-data)",
-                      fontSize: "10px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      opacity: showGrossLayer ? 1 : 0.4,
-                    }}
-                  >
-                    <span style={{ width: "8px", height: "8px", backgroundColor: "var(--orange)", borderRadius: "50%", display: "inline-block" }} />
-                    GROSS: {currentTrendPoint.gross.toLocaleString()} MYR
-                  </button>
-
-                  <button
-                    onClick={() => setShowTaxLayer(!showTaxLayer)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: showTaxLayer ? "var(--success)" : "var(--text-disabled)",
-                      fontFamily: "var(--font-data)",
-                      fontSize: "10px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      opacity: showTaxLayer ? 1 : 0.4,
-                    }}
-                  >
-                    <span style={{ width: "8px", height: "8px", backgroundColor: "var(--success)", borderRadius: "50%", display: "inline-block" }} />
-                    TAX: {currentTrendPoint.tax.toLocaleString()} MYR
-                  </button>
-                </div>
-
-                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", border: "1px solid rgba(74,158,92,0.4)", backgroundColor: "rgba(74,158,92,0.1)", padding: "1px 6px", borderRadius: "4px" }}>
+                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", border: "1px solid rgba(74,158,92,0.4)", backgroundColor: "rgba(74,158,92,0.1)", padding: "2px 8px", borderRadius: "4px", fontWeight: "700" }}>
                   EFFICIENCY: {taxRatioPct}%
                 </span>
               </div>
 
-              {/* HIGH-PRECISION REFINED SVG TREND CANVAS WITH HTML Y-AXIS */}
-              <div style={{ display: "flex", gap: "10px", alignItems: "stretch", width: "100%", height: "200px" }}>
-                {/* UNSTRETCHED HTML Y-AXIS LABELS */}
-                <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", padding: "4px 0", userSelect: "none" }}>
-                  {["7.0k", "5.2k", "3.5k", "1.7k", "0.0k"].map((val, idx) => (
-                    <span key={idx} style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", lineHeight: 1 }}>
-                      {val}
-                    </span>
-                  ))}
-                </div>
-
-                {/* SVG GRAPH CANVAS */}
-                <div style={{ flex: 1, height: "100%", position: "relative" }}>
-                  <svg width="100%" height="100%" viewBox="0 0 500 160" preserveAspectRatio="none" style={{ overflow: "visible" }}>
+              {/* RECHARTS COMPOSED CHART (LINE-CHARTS-9 ENGINE) */}
+              <div style={{ width: "100%", height: "260px", minHeight: "260px", position: "relative" }}>
+                <ChartContainer config={rechartsConfig} className="h-full w-full">
+                  <ComposedChart
+                    data={RECHARTS_TREND_DATA}
+                    margin={{ top: 15, right: 15, left: -10, bottom: 0 }}
+                  >
                     <defs>
-                      <linearGradient id="grossRefinedGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--orange)" stopOpacity="0.30" />
-                        <stop offset="100%" stopColor="var(--orange)" stopOpacity="0.0" />
-                      </linearGradient>
-                      <linearGradient id="taxRefinedGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--success)" stopOpacity="0.40" />
-                        <stop offset="100%" stopColor="var(--success)" stopOpacity="0.0" />
-                      </linearGradient>
-                      <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      <pattern id="dotGridRecharts" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <circle cx="8" cy="8" r="1" fill="#333333" fillOpacity="0.4" />
+                      </pattern>
+                      <filter id="dotShadowRecharts" x="-50%" y="-50%" width="200%" height="200%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.8)" />
+                      </filter>
+                      <filter id="lineShadowGross" x="-100%" y="-100%" width="300%" height="300%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(255, 92, 0, 0.4)" />
+                      </filter>
+                      <filter id="lineShadowTax" x="-100%" y="-100%" width="300%" height="300%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(74, 158, 92, 0.4)" />
                       </filter>
                     </defs>
 
-                    {/* Horizontal Grid lines */}
-                    {[15, 47, 80, 112, 145].map((y, i) => (
-                      <line key={i} x1="0" y1={y} x2="500" y2={y} stroke="var(--border)" strokeDasharray="3 3" strokeWidth="1" />
-                    ))}
+                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dotGridRecharts)" style={{ pointerEvents: 'none' }} />
 
-                  {/* RENDER MODE: AREA / LINE / BARS */}
-                  {graph01Mode === "BARS" ? (
-                    /* MONTHLY COMPARATIVE BARS MODE */
-                    MONTHLY_TREND_DATA.map((d, idx) => {
-                      const cx = X_COORDS[idx];
-                      const grossY = getYCoord(d.gross);
-                      const taxY = getYCoord(d.tax);
-                      const isHovered = activeTrendIdx === idx;
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222222" vertical={false} />
 
-                      return (
-                        <g key={idx} onMouseEnter={() => setActiveTrendIdx(idx)} style={{ cursor: "pointer" }}>
-                          {showGrossLayer && (
-                            <rect
-                              x={cx - 14}
-                              y={grossY}
-                              width="12"
-                              height={145 - grossY}
-                              fill={isHovered ? "var(--orange)" : "rgba(255, 92, 0, 0.4)"}
-                              rx="2"
-                            />
-                          )}
-                          {showTaxLayer && (
-                            <rect
-                              x={cx + 2}
-                              y={taxY}
-                              width="12"
-                              height={145 - taxY}
-                              fill={isHovered ? "var(--success)" : "rgba(74, 158, 92, 0.5)"}
-                              rx="2"
-                            />
-                          )}
-                        </g>
-                      );
-                    })
-                  ) : (
-                    /* AREA & SMOOTH CUBIC LINE MODE */
-                    <>
-                      {/* Area Fill (Only shown in AREA mode) */}
-                      {graph01Mode === "AREA" && showGrossLayer && (
-                        <path d={generateAreaPath(MONTHLY_TREND_DATA, "gross")} fill="url(#grossRefinedGrad)" style={{ transition: "opacity 0.3s ease" }} />
-                      )}
-                      {graph01Mode === "AREA" && showTaxLayer && (
-                        <path d={generateAreaPath(MONTHLY_TREND_DATA, "tax")} fill="url(#taxRefinedGrad)" style={{ transition: "opacity 0.3s ease" }} />
-                      )}
-
-                      {/* Smooth Cubic Bezier Lines */}
-                      {showGrossLayer && (
-                        <path
-                          d={generateCubicPath(MONTHLY_TREND_DATA, "gross")}
-                          fill="none"
-                          stroke="var(--orange)"
-                          strokeWidth="1.25"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{ transition: "opacity 0.3s ease" }}
-                        />
-                      )}
-                      {showTaxLayer && (
-                        <path
-                          d={generateCubicPath(MONTHLY_TREND_DATA, "tax")}
-                          fill="none"
-                          stroke="var(--success)"
-                          strokeWidth="1.25"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{ transition: "opacity 0.3s ease" }}
-                        />
-                      )}
-                    </>
-                  )}
-
-                  {/* ACTIVE HIGHLIGHT VERTICAL LASER RETICLE */}
-                  {activeTrendIdx !== null && (
-                    <g>
-                      <line
-                        x1={X_COORDS[activeTrendIdx]}
-                        y1="10"
-                        x2={X_COORDS[activeTrendIdx]}
-                        y2="145"
-                        stroke="var(--success)"
-                        strokeDasharray="3 3"
-                        strokeWidth="1.5"
-                      />
-                      {/* Active Node Circles with Pulse Rings */}
-                      {showGrossLayer && (
-                        <circle
-                          cx={X_COORDS[activeTrendIdx]}
-                          cy={getYCoord(MONTHLY_TREND_DATA[activeTrendIdx].gross)}
-                          r="5"
-                          fill="var(--surface)"
-                          stroke="var(--orange)"
-                          strokeWidth="1.5"
-                        />
-                      )}
-                      {showTaxLayer && (
-                        <circle
-                          cx={X_COORDS[activeTrendIdx]}
-                          cy={getYCoord(MONTHLY_TREND_DATA[activeTrendIdx].tax)}
-                          r="5"
-                          fill="var(--surface)"
-                          stroke="var(--success)"
-                          strokeWidth="1.5"
-                          filter="url(#glowGreen)"
-                        />
-                      )}
-                    </g>
-                  )}
-
-                  {/* MOUSE HOVER DETECTION COLUMNS */}
-                  {X_COORDS.map((cx, idx) => (
-                    <rect
-                      key={idx}
-                      x={cx - 20}
-                      y="10"
-                      width="40"
-                      height="135"
-                      fill="transparent"
-                      onMouseEnter={() => setActiveTrendIdx(idx)}
-                      style={{ cursor: "pointer" }}
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#999999", fontFamily: "var(--font-data)" }}
+                      tickMargin={10}
                     />
-                  ))}
-                </svg>
-              </div>
-            </div>
 
-            {/* X-AXIS LABELS */}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "0 10px 0 40px" }}>
-                {MONTHLY_TREND_DATA.map((d, i) => (
-                  <span
-                    key={i}
-                    onClick={() => setActiveTrendIdx(i)}
-                    style={{
-                      fontFamily: "var(--font-data)",
-                      fontSize: "10px",
-                      fontWeight: activeTrendIdx === i ? "700" : "normal",
-                      color: activeTrendIdx === i ? "var(--text-display)" : "var(--text-disabled)",
-                      cursor: "pointer",
-                      padding: "2px 4px",
-                      borderRadius: "3px",
-                      backgroundColor: activeTrendIdx === i ? "var(--surface-raised)" : "transparent",
-                    }}
-                  >
-                    {d.month}
-                  </span>
-                ))}
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#666666", fontFamily: "var(--font-data)" }}
+                      tickFormatter={(val) => `$${(val / 1000).toFixed(1)}k`}
+                      tickMargin={10}
+                    />
+
+                    <ChartTooltip content={<RechartsCustomTooltip />} />
+
+                    <Line
+                      type="monotone"
+                      dataKey="gross"
+                      stroke="#FF5C00"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#FF5C00", stroke: "#000000", strokeWidth: 1.5 }}
+                      activeDot={{
+                        r: 6,
+                        fill: "#FF5C00",
+                        stroke: "#FFFFFF",
+                        strokeWidth: 2,
+                      }}
+                    />
+
+                    <Line
+                      type="monotone"
+                      dataKey="tax"
+                      stroke="#4A9E5C"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#4A9E5C", stroke: "#000000", strokeWidth: 1.5 }}
+                      activeDot={{
+                        r: 6,
+                        fill: "#4A9E5C",
+                        stroke: "#FFFFFF",
+                        strokeWidth: 2,
+                      }}
+                    />
+                  </ComposedChart>
+                </ChartContainer>
               </div>
             </div>
 
             {/* GRAPH TYPE 2: CATEGORY DUAL COLUMN BAR CHART */}
             <div className="dot-grid-subtle" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border-visible)", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-visible)", paddingBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
                 <div>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", fontWeight: "700", color: "var(--text-display)", letterSpacing: "0.06em", display: "block" }}>
+                  <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "var(--text-display)", letterSpacing: "0.08em", display: "block" }}>
                     [ GRAPH 02: CATEGORY EXPENDITURE COLUMNS ]
                   </span>
                   <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)" }}>
                     Gross Expenditure vs Tax Claimable per Category
                   </span>
                 </div>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)" }}>● REAL-TIME</span>
-              </div>
-
-              {/* ACTIVE HOVER CARD */}
-              <div style={{ backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "6px", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", fontWeight: "700", color: "var(--text-display)" }}>
-                  CAT: {activeCatIdx !== null ? CATEGORY_BAR_DATA[activeCatIdx].category : "BUSINESS"}
+                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", border: "1px solid rgba(74,158,92,0.4)", backgroundColor: "rgba(74,158,92,0.1)", padding: "2px 8px", borderRadius: "4px", fontWeight: "700" }}>
+                  ● AUDITED AUDIT TELEMETRY
                 </span>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--orange)", fontWeight: "700" }}>
-                    GROSS: {activeCatIdx !== null ? CATEGORY_BAR_DATA[activeCatIdx].gross.toLocaleString() : "4,300.40"} MYR
-                  </span>
-                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", fontWeight: "700" }}>
-                    TAX: {activeCatIdx !== null ? CATEGORY_BAR_DATA[activeCatIdx].tax.toLocaleString() : "4,300.40"} MYR
-                  </span>
-                </div>
               </div>
 
-              {/* DUAL COLUMN BARS CONTAINER */}
-              <div style={{ width: "100%", height: "200px", display: "flex", alignItems: "flex-end", justifyContent: "space-around", padding: "10px 0 0 0", borderBottom: "1px solid var(--border-visible)" }}>
-                {CATEGORY_BAR_DATA.map((cat, idx) => {
-                  const grossHeightPct = Math.min(100, (cat.gross / 4500) * 100);
-                  const taxHeightPct = Math.min(100, (cat.tax / 4500) * 100);
-                  const isHovered = activeCatIdx === idx;
+              {/* RECHARTS DUAL BAR CHART ENGINE */}
+              <div style={{ width: "100%", height: "260px", minHeight: "260px", position: "relative" }}>
+                <ChartContainer config={rechartsConfig} className="h-full w-full">
+                  <ComposedChart
+                    data={CATEGORY_BAR_DATA.map((c) => ({
+                      category: c.category === "TAX DEDUCTIBLE" ? "TAX CLAIM" : c.category,
+                      gross: c.gross,
+                      tax: c.tax,
+                    }))}
+                    margin={{ top: 15, right: 15, left: -10, bottom: 0 }}
+                  >
+                    <defs>
+                      <pattern id="dotGridBar" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <circle cx="8" cy="8" r="1" fill="#333333" fillOpacity="0.4" />
+                      </pattern>
+                    </defs>
 
-                  return (
-                    <div
-                      key={idx}
-                      onMouseEnter={() => setActiveCatIdx(idx)}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: "6px",
-                        height: "100%",
-                        justifyContent: "flex-end",
-                        cursor: "pointer",
-                        opacity: isHovered ? 1 : 0.75,
-                        transition: "all 0.2s ease",
+                    <rect x="0" y="0" width="100%" height="100%" fill="url(#dotGridBar)" style={{ pointerEvents: 'none' }} />
+
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222222" vertical={false} />
+
+                    <XAxis
+                      dataKey="category"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#999999", fontFamily: "var(--font-data)" }}
+                      tickMargin={10}
+                    />
+
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#666666", fontFamily: "var(--font-data)" }}
+                      tickFormatter={(val) => `$${(val / 1000).toFixed(1)}k`}
+                      tickMargin={10}
+                    />
+
+                    <ChartTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div style={{ backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "10px 12px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
+                              <div style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", marginBottom: "4px" }}>
+                                {data.category} // CATEGORY BREAKDOWN
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)" }}>GROSS:</span>
+                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "#FF5C00" }}>${data.gross.toLocaleString("en-US", { minimumFractionDigits: 2 })} MYR</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)" }}>TAX CLAIM:</span>
+                                  <span style={{ fontFamily: "var(--font-data)", fontSize: "11px", fontWeight: "700", color: "#4A9E5C" }}>${data.tax.toLocaleString("en-US", { minimumFractionDigits: 2 })} MYR</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
                       }}
-                    >
-                      {/* DUAL COLUMN BAR PAIR */}
-                      <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "140px" }}>
-                        {/* GROSS BAR */}
-                        <div
-                          style={{
-                            width: "14px",
-                            height: `${grossHeightPct}%`,
-                            backgroundColor: isHovered ? "var(--orange)" : "rgba(255, 92, 0, 0.4)",
-                            borderRadius: "3px 3px 0 0",
-                            transition: "all 0.3s ease",
-                          }}
-                        />
-                        {/* TAX BAR */}
-                        <div
-                          style={{
-                            width: "14px",
-                            height: `${taxHeightPct}%`,
-                            backgroundColor: "var(--success)",
-                            borderRadius: "3px 3px 0 0",
-                            transition: "all 0.3s ease",
-                            boxShadow: isHovered ? "0 0 8px rgba(74, 158, 92, 0.4)" : "none",
-                          }}
-                        />
-                      </div>
+                    />
 
-                      {/* X-AXIS LABEL */}
-                      <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: isHovered ? "var(--text-display)" : "var(--text-disabled)", letterSpacing: "0.04em" }}>
-                        {cat.category.substring(0, 4)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* LEGEND */}
-              <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginTop: "-4px" }}>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "8px", height: "8px", backgroundColor: "var(--orange)", borderRadius: "2px" }} /> GROSS EXPENSE
-                </span>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--success)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "8px", height: "8px", backgroundColor: "var(--success)", borderRadius: "2px" }} /> TAX DEDUCTIBLE
-                </span>
+                    <Bar dataKey="gross" fill="#FF5C00" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                    <Bar dataKey="tax" fill="#4A9E5C" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                  </ComposedChart>
+                </ChartContainer>
               </div>
             </div>
 
