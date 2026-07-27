@@ -29,13 +29,13 @@ const rechartsConfig = {
   },
 } satisfies ChartConfig;
 
-const RechartsCustomTooltip = ({ active, payload }: any) => {
+const RechartsCustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { month: string; gross: number; tax: number } }> }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
       <div style={{ backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "10px 12px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
         <div style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", marginBottom: "4px" }}>
-          {data.month} // AUDIT SNAPSHOT
+          {data.month} {"// AUDIT SNAPSHOT"}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
@@ -73,16 +73,6 @@ const INITIAL_REPORTS: ReportSummary[] = [
   { id: "REP-2026-06B", category: "TAX DEDUCTIBLE", period: "JUNE 2026", totalAmount: 1680.00, taxDeductibleAmount: 1680.00, itemCount: 11, status: "RECONCILED" },
 ];
 
-const MONTHLY_TREND_DATA = [
-  { month: "JAN", gross: 4890.00, tax: 1980.00 },
-  { month: "FEB", gross: 3450.00, tax: 1100.00 },
-  { month: "MAR", gross: 4110.00, tax: 1620.00 },
-  { month: "APR", gross: 6240.00, tax: 2890.00 },
-  { month: "MAY", gross: 3980.00, tax: 1450.00 },
-  { month: "JUN", gross: 5120.00, tax: 2140.00 },
-  { month: "JUL", gross: 5840.00, tax: 4949.90 },
-];
-
 const CATEGORY_BAR_DATA = [
   { category: "BUSINESS", gross: 4300.40, tax: 4300.40, color: "var(--text-display)" },
   { category: "TAX DEDUCTIBLE", gross: 3100.00, tax: 3100.00, color: "var(--success)" },
@@ -90,39 +80,6 @@ const CATEGORY_BAR_DATA = [
   { category: "HOUSEHOLD", gross: 890.50, tax: 0.00, color: "var(--text-disabled)" },
   { category: "MEDICAL", gross: 380.00, tax: 380.00, color: "var(--interactive)" },
 ];
-
-// Helper functions for dynamic high-precision SVG math
-const X_COORDS = [30, 103, 176, 250, 323, 396, 470];
-
-const getYCoord = (val: number) => {
-  const maxVal = 7000;
-  const topY = 15;
-  const bottomY = 145;
-  const chartHeight = bottomY - topY;
-  return bottomY - (val / maxVal) * chartHeight;
-};
-
-const generateCubicPath = (data: typeof MONTHLY_TREND_DATA, key: "gross" | "tax") => {
-  const pts = data.map((d, i) => ({ x: X_COORDS[i], y: getYCoord(d[key]) }));
-  let d = `M ${pts[0].x},${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const curr = pts[i];
-    const next = pts[i + 1];
-    const cp1x = curr.x + (next.x - curr.x) / 2;
-    const cp1y = curr.y;
-    const cp2x = curr.x + (next.x - curr.x) / 2;
-    const cp2y = next.y;
-    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${next.x},${next.y}`;
-  }
-  return d;
-};
-
-const generateAreaPath = (data: typeof MONTHLY_TREND_DATA, key: "gross" | "tax") => {
-  const linePath = generateCubicPath(data, key);
-  const lastX = X_COORDS[X_COORDS.length - 1];
-  const firstX = X_COORDS[0];
-  return `${linePath} L ${lastX},145 L ${firstX},145 Z`;
-};
 
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -133,14 +90,7 @@ export default function ReportsPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedReportDetail, setSelectedReportDetail] = useState<ReportSummary | null>(null);
 
-  // Graph 01 Custom Controls
-  const [graph01Mode, setGraph01Mode] = useState<"AREA" | "LINE" | "BARS">("AREA");
-  const [showGrossLayer, setShowGrossLayer] = useState(true);
-  const [showTaxLayer, setShowTaxLayer] = useState(true);
-  const [activeTrendIdx, setActiveTrendIdx] = useState<number | null>(6);
 
-  // Graph 02 Controls
-  const [activeCatIdx, setActiveCatIdx] = useState<number | null>(0);
 
   const triggerScan = () => {
     setIsScanning(true);
@@ -164,8 +114,8 @@ export default function ReportsPage() {
   const totalTaxClaimable = filteredReports.reduce((acc, r) => acc + r.taxDeductibleAmount, 0);
   const estimatedTaxSavings = totalTaxClaimable * 0.24;
 
-  const currentTrendPoint = activeTrendIdx !== null ? MONTHLY_TREND_DATA[activeTrendIdx] : MONTHLY_TREND_DATA[6];
-  const taxRatioPct = currentTrendPoint ? ((currentTrendPoint.tax / currentTrendPoint.gross) * 100).toFixed(1) : "84.7";
+  const latestTrendPoint = RECHARTS_TREND_DATA[RECHARTS_TREND_DATA.length - 1];
+  const taxRatioPct = latestTrendPoint ? ((latestTrendPoint.tax / latestTrendPoint.gross) * 100).toFixed(1) : "84.7";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100%", backgroundColor: "var(--black)" }}>
@@ -407,7 +357,7 @@ export default function ReportsPage() {
                           return (
                             <div style={{ backgroundColor: "var(--surface-raised)", border: "1px solid var(--border-visible)", borderRadius: "8px", padding: "10px 12px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
                               <div style={{ fontFamily: "var(--font-data)", fontSize: "10px", color: "var(--text-disabled)", marginBottom: "4px" }}>
-                                {data.category} // CATEGORY BREAKDOWN
+                                {data.category} {"// CATEGORY BREAKDOWN"}
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
